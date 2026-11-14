@@ -16,14 +16,11 @@
 # real, it just needs a session, so this is GitHub behaviour and not link rot.
 ^https://github\.com/anilcancakir/[a-z_]+/stargazers
 
-# The package is not on pub.dev yet; its pages answer 404 until the first release.
-# Added 2026-11-13: remove these lines once wind_kit 1.12.0 is published.
-^https://pub\.dev/packages/wind_kit(?:[/?#]|$)
-^https://pub\.dev/documentation/wind_kit/
-
 # The MCP server speaks JSON-RPC over POST: a GET (what lychee sends) is
-# answered with 405 Method Not Allowed, while POST returns 200. Reachability is
-# already proven by that 405, so checking it adds nothing.
+# answered with 405 Method Not Allowed and `allow: POST`, while a JSON-RPC POST
+# is handled. Reachability is already proven by that 405, so checking it adds
+# nothing. Verified 2026-11-15 with curl; this is the endpoint's permanent
+# behaviour, so the line stays.
 ^https://mcp\.anilcancakir\.com
 
 # Placeholder hosts inside example code. Fenced blocks are already skipped by

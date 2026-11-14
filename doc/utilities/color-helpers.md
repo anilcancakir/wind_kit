@@ -8,6 +8,7 @@ Resolve theme colours, hex values and opacity from Dart with `wColor` and the co
 - [Contrast](#contrast)
 - [Material Color Inversion](#material-color-inversion)
 - [Context Extensions](#context-extensions)
+- [Related Documentation](#related-documentation)
 
 Wind provides a set of utility functions and extensions to help you resolve and manipulate colours programmatically, staying consistent with your theme.
 
@@ -173,3 +174,12 @@ if (context.windIsDark) {
   // Do something specific for dark mode
 }
 ```
+
+<a name="related-documentation"></a>
+## Related Documentation
+
+- [Theme Configuration](../core-concepts/theming.md): define the colour tokens these helpers resolve.
+- [Dark Mode](../core-concepts/dark-mode.md): the `dark:` variant for colours in a className.
+- [Context Extensions](./context-extensions.md): every `BuildContext` helper in one place.
+- [Text Color](../typography/text-color.md): colour utilities for text.
+- [Background Color](../styling/background-color.md): colour utilities for backgrounds.

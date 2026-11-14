@@ -14,6 +14,7 @@ Print a widget's composition tree with the `debug` token, catch unknown classNam
 - [Unknown className Warnings](#unknown-classname-warnings)
 - [External Tooling Integration](#external-tooling-integration)
 - [Aggregate Performance Counters](#aggregate-performance-counters)
+- [Related Documentation](#related-documentation)
 
 <a name="introduction"></a>
 ## Introduction
@@ -206,7 +207,7 @@ Fields whose value is null are omitted; the map only carries what the widget act
 `WindParser.parse` runs on every build of every W-widget, and its cache has three outcomes rather than the usual two:
 
 | Outcome | When | Cost |
-|---|---|---|
+|:--------|:-----|:-----|
 | **Hit** | no `baseStyle`, and the key is present | a map lookup |
 | **Miss** | no `baseStyle`, key absent | parses once, then caches |
 | **Bypass** | a `baseStyle` was supplied | parses on every rebuild, never caches |
@@ -247,3 +248,11 @@ if (!kReleaseMode) {
 A tool then reads `WindDebugRegistry.currentPerf?.stats()` and gets exactly nine keys: `cacheHits`, `cacheMisses`, `cacheBypasses`, `cacheSize`, `wDivBuilds`, `wTextBuilds` (all `int`), plus `widgetBuilds`, `wrapperEmissions`, `inheritedReads` (all `Map<String, int>`). The `null` when no resolver is registered is meaningful and worth passing through rather than flattening to zeros: it is what lets a caller tell "wind never installed one" from "the counters really are zero".
 
 `tapir` reads this during a `tapir:perf_begin` / `tapir:perf_end` session.
+
+<a name="related-documentation"></a>
+## Related Documentation
+
+- [Utility-First Fundamentals](./utility-first.md): the className syntax the parser resolves and the logger reports on.
+- [Responsive Design](./responsive-design.md): breakpoint prefixes whose `Final Styles` the `debug` token re-reports on resize.
+- [State Management](./state-management.md): state variants whose merged style the log shows.
+- [WDiv](../widgets/w-div.md): the widget most `debug` reports come from.

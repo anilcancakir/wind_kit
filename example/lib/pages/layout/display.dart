@@ -57,7 +57,8 @@ class DisplayExamplePage extends StatelessWidget {
         ),
         ExampleSection(
           title: 'Grid',
-          description: 'grid resolves to a GridView with crossAxisCount = grid-cols-{n}.',
+          description:
+              'grid lays the children out in grid-cols-{n} equal columns.',
           child: WDiv(
             className: 'grid grid-cols-3 gap-3',
             children: const [

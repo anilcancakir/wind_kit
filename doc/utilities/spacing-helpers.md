@@ -11,6 +11,7 @@ Wind provides programmatic access to your theme's spacing scale through helper f
 - [Context Extensions](#context-extensions)
 - [Programmatic Access](#programmatic-access)
 - [Theme Configuration](#theme-configuration)
+- [Related Documentation](#related-documentation)
 
 <a name="wspacing-function"></a>
 ## The wSpacing Function
@@ -80,7 +81,9 @@ With the above configuration:
 - `wSpacing(context, 4)` returns **20.0**
 - `WDiv(className: 'p-4')` applies **20.0px** padding.
 
-Related Documentation:
-- [Spacing Layout Utilities](../layout/spacing.md)
-- [Theming Guide](../core-concepts/theming.md)
-- [Context Extensions](./context-extensions.md)
+<a name="related-documentation"></a>
+## Related Documentation
+
+- [Spacing Layout Utilities](../layout/spacing.md): `p-4`, `m-2` and `gap-6` in a className.
+- [Theme Configuration](../core-concepts/theming.md): set the base spacing unit.
+- [Context Extensions](./context-extensions.md): the `BuildContext` spacing shortcuts.

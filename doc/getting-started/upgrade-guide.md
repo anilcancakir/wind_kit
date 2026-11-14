@@ -12,6 +12,7 @@ What changed between wind_kit versions and what to edit in your app when you upg
   - [Behavior changes to review](#behavior-changes)
   - [Action required](#action-required)
   - [Fixes you get for free](#free-fixes)
+- [Related Documentation](#related-documentation)
 
 <a name="overview"></a>
 ## Overview
@@ -189,3 +190,10 @@ No action needed; these land automatically.
 - A conditional `prefix` / `suffix` (for example a clear button that appears once the field has text) no longer drops focus on the first keystroke, and an appearing suffix no longer changes the field height.
 - A disabled `WInput` (`enabled: false`) is fully non-interactive again and reports `isEnabled: false` to assistive technology.
 - `WInput` emits a single clean `textField` semantics node instead of the previous double node.
+
+<a name="related-documentation"></a>
+## Related Documentation
+
+- [Installation](./installation.md): the dependencies and setup for a new app.
+- [Theme Binding](../core-concepts/theme-binding.md): `toThemeData()` and the `ThemeData` it returns under `material_ui`.
+- [WInput](../widgets/w-input.md): the input widget the 1.1.0 fixes land in.

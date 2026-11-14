@@ -9,6 +9,7 @@ Responsive helpers provide programmatic access to Wind's breakpoint system, plat
 - [Window Size Class](#window-size-class)
 - [Breakpoint Reference](#breakpoint-reference)
 - [Platform Detection](#platform-detection)
+- [Related Documentation](#related-documentation)
 
 <a name="context-extensions"></a>
 ## Context Extensions
@@ -128,4 +129,9 @@ if (wind.isMobile) {
 print(wind.platform); // 'ios', 'android', 'web', 'macos', etc.
 ```
 
-For more details on responsive styling using class names, see the [Responsive Design](../core-concepts/responsive-design.md) guide.
+<a name="related-documentation"></a>
+## Related Documentation
+
+- [Responsive Design](../core-concepts/responsive-design.md): responsive styling with className prefixes.
+- [Context Extensions](./context-extensions.md): the `BuildContext` breakpoint shortcuts.
+- [WBreakpoint](../widgets/w-breakpoint.md): render a different widget tree per breakpoint.

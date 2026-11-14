@@ -10,6 +10,7 @@ Read the theme's font sizes and weights from Dart with `wFontSize`, `wFontWeight
 - [BuildContext Extensions](#buildcontext-extensions)
 - [Theme Scale Access](#theme-scale-access)
 - [Customizing Scales](#customizing-scales)
+- [Related Documentation](#related-documentation)
 
 <a name="introduction"></a>
 ## Introduction
@@ -123,3 +124,11 @@ Once defined, these custom keys are accessible just like the defaults:
 ```dart
 final displaySize = context.wFontSizeExt('display'); // 120.0
 ```
+
+<a name="related-documentation"></a>
+## Related Documentation
+
+- [Font Size](../typography/font-size.md): `text-*` sizes in a className.
+- [Font Weight](../typography/font-weight.md): `font-*` weights in a className.
+- [Theme Configuration](../core-concepts/theming.md): the typography tokens these helpers read.
+- [Context Extensions](./context-extensions.md): the `BuildContext` typography shortcuts.

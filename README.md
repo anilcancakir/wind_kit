@@ -148,7 +148,7 @@ wind_kit reads Tailwind's vocabulary (`flex`, `p-4`, `bg-blue-500`, `rounded-lg`
 | Dark mode | Every colour token carries its `dark:` pair in the SAME className. Nothing checks it for you, so review it: `bg-white` alone stays white in dark mode. |
 | Unknown tokens | An unknown family (`ps-4`) is dropped with a one-time `kDebugMode` hint. A known family with a bad value (`text-7xl`, `bg-blu-500`) or a mistyped prefix (`hovr:`) drops silently. A typo never throws and never renders a red screen. |
 | Spacing scale | One step is 4 logical pixels, so `p-4` is 16. Font size is pixel based too; tracking is em, as in Tailwind, so `tracking-tight` on 14px text is -0.35. |
-| Press state | `active:` is not wired to the pointer. Track the press in your own state and pass `states: {'pressed'}` with `pressed:` classes. |
+| Press state | `active:` is not wired to the pointer. Track the press in your own state and pass `states: {'active'}` to the styled widget. |
 | Caching | A parsed className is cached on `className + breakpoint + brightness + platform + states`, so rebuilds cost a map lookup. |
 
 wind_kit is not a literal Tailwind port: most classes paste between a web project and a Flutter one, and the gaps are listed. Transforms, filters, `group-*` / `peer-*`, container queries and `@apply` have no Flutter counterpart and are deliberately out of scope.

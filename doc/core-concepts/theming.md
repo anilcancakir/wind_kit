@@ -13,6 +13,7 @@ Configure colours, spacing, typography, breakpoints and animations through `Wind
 - [Customizing Defaults](#customizing-defaults)
 - [Aliases](#aliases)
 - [Quick Reference](#quick-reference)
+- [Related Documentation](#related-documentation)
 
 <x-preview path="core-concepts/theming_example" size="md" source="example/lib/pages/core-concepts/theming_example.dart"></x-preview>
 
@@ -333,4 +334,11 @@ WDiv(className: 'row-c bg-white dark:bg-gray-800')
 
 `onThemeChanged` is a `WindTheme` widget parameter, not a `WindThemeData` field. It fires on every brightness change that does not come from the OS sync (`toggleTheme()`, `setTheme()`, `updateTheme(brightness:)`, `resetToSystem()`, and a new `data:` from a parent rebuild) and is documented in the [Theme Change Callbacks](#theme-change-callbacks) section above.
 
-For more details on how to sync these values with Flutter's standard Material components, check out the [Theme Binding](./theme-binding.md) guide.
+<a name="related-documentation"></a>
+## Related Documentation
+
+- [Theme Binding](./theme-binding.md): sync these values with Flutter's standard Material components.
+- [Dark Mode](./dark-mode.md): the `dark:` variant and manual or system brightness.
+- [Context Extensions](../utilities/context-extensions.md): read the theme and its controller from `BuildContext`.
+- [Spacing Helpers](../utilities/spacing-helpers.md): the spacing scale from Dart.
+- [Typography Helpers](../utilities/typography-helpers.md): the font size and weight scales from Dart.

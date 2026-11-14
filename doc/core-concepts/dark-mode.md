@@ -6,6 +6,7 @@ Wind makes it incredibly easy to support dark mode using the `dark:` variant mod
 - [System vs Manual Mode](#system-vs-manual-mode)
 - [Responsive Dark Mode](#responsive-dark-mode)
 - [Best Practices](#best-practices)
+- [Related Documentation](#related-documentation)
 
 <x-preview path="core-concepts/dark_mode_basic" size="md" source="example/lib/pages/core-concepts/dark_mode_basic.dart"></x-preview>
 
@@ -102,3 +103,12 @@ Borders that look great in light mode might appear too harsh in dark mode. Consi
 ```dart
 WDiv(className: "border border-gray-200 dark:border-gray-700")
 ```
+
+<a name="related-documentation"></a>
+## Related Documentation
+
+- [Theme Configuration](./theming.md): `WindTheme`, brightness and the colour tokens that `dark:` resolves against.
+- [Theme Binding](./theme-binding.md): keep Material `ThemeData` in step with Wind's brightness.
+- [Responsive Design](./responsive-design.md): stack `dark:` with breakpoint prefixes.
+- [State Management](./state-management.md): combine `dark:` with `hover:` and `focus:`.
+- [Color Helpers](../utilities/color-helpers.md): `context.windIsDark` and dark overrides from Dart.

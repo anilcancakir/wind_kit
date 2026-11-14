@@ -43,15 +43,17 @@ WDiv(
 <a name="quick-reference"></a>
 ## Quick Reference
 
-| Class | Properties |
-|:--- |:--- |
-| `grid-cols-1` | `crossAxisCount: 1` |
-| `grid-cols-2` | `crossAxisCount: 2` |
-| `grid-cols-3` | `crossAxisCount: 3` |
-| `grid-cols-4` | `crossAxisCount: 4` |
-| `grid-cols-5` | `crossAxisCount: 5` |
-| `grid-cols-6` | `crossAxisCount: 6` |
-| `grid-cols-12` | `crossAxisCount: 12` |
+| Class | Result |
+|:------|:-------|
+| `grid-cols-1` | 1 equal column |
+| `grid-cols-2` | 2 equal columns |
+| `grid-cols-3` | 3 equal columns |
+| `grid-cols-4` | 4 equal columns |
+| `grid-cols-5` | 5 equal columns |
+| `grid-cols-6` | 6 equal columns |
+| `grid-cols-12` | 12 equal columns |
+
+Cells wrap onto a new row after every `n` items, so the grid is a `Wrap` with computed column widths, not a Flutter `GridView`.
 
 > [!NOTE]
 > Wind's parser supports **any integer** value for `grid-cols-{n}`, not just the standard Tailwind scale (1-12).

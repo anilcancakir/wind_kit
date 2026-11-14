@@ -8,6 +8,13 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The `grid-cols-N` docs no longer say the grid is a Flutter `GridView` with `crossAxisCount: N`.** A `grid` is a `Wrap` with computed column widths (or, with `items-stretch`, a column of equal-height rows); the Quick Reference on `doc/layout/grid.md`, the Display page and the gallery now read "N equal columns".
+- **The press-state advice is one answer everywhere.** The README and the `WDiv` page said to pass `states: {'pressed'}`, while the state guide, `llms.txt` and the skill said `states: {'active'}`; they now all say `active`, the state the `active:` prefix reads.
+- **Eleven doc pages gain a `## Related Documentation` section** (dark mode, debugging, theme binding, theming, utility-first, installation, upgrade guide and the colour, responsive, spacing and typography helpers), and the Z-Index, Opacity and WindRecipe pages use the same bare-list table of contents as every other page.
+- **The Windows and macOS example runners carry `com.anilcancakir.wind_kit` instead of the old `com.fluttersdk.wind` company string, and the stale Android `MainActivity` of the old package name is gone.**
+
 ---
 
 ## [1.12.0] - 2026-11-14

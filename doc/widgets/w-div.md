@@ -137,7 +137,7 @@ Common prefixes:
 - `focus:` - Applies when the element has keyboard focus.
 - `disabled:` - Applies when the element or parent is disabled.
 - `dark:` - Applies when the application is in dark mode.
-- `active:` - Reserved: it applies only when you pass `states: {'active'}`. Neither `WDiv` nor `WAnchor` tracks the press, so keep it in your own state and pass `states: {'pressed'}` with `pressed:` classes.
+- `active:` - Reserved: it applies only when you pass `states: {'active'}`. Neither `WDiv` nor `WAnchor` tracks the press, so keep it in your own state and pass `states: {'active'}`.
 
 <a name="styling-examples"></a>
 ## Styling Examples

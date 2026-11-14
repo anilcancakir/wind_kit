@@ -48,11 +48,14 @@ class GridColsExamplePage extends StatelessWidget {
           child: WDiv(
             className: 'flex flex-col gap-1',
             children: const [
-              _RefRow(cls: 'grid-cols-1', crossAxis: '1'),
-              _RefRow(cls: 'grid-cols-3', crossAxis: '3'),
-              _RefRow(cls: 'grid-cols-6', crossAxis: '6'),
-              _RefRow(cls: 'grid-cols-12', crossAxis: '12'),
-              _RefRow(cls: 'grid-cols-16', crossAxis: '16 (any int)'),
+              _RefRow(cls: 'grid-cols-1', result: '1 equal column'),
+              _RefRow(cls: 'grid-cols-3', result: '3 equal columns'),
+              _RefRow(cls: 'grid-cols-6', result: '6 equal columns'),
+              _RefRow(cls: 'grid-cols-12', result: '12 equal columns'),
+              _RefRow(
+                cls: 'grid-cols-16',
+                result: '16 equal columns (any int)',
+              ),
             ],
           ),
         ),
@@ -130,9 +133,9 @@ class _GridRow extends StatelessWidget {
 
 class _RefRow extends StatelessWidget {
   final String cls;
-  final String crossAxis;
+  final String result;
 
-  const _RefRow({required this.cls, required this.crossAxis});
+  const _RefRow({required this.cls, required this.result});
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +151,7 @@ class _RefRow extends StatelessWidget {
           className: 'font-mono text-sm text-green-700 dark:text-green-400',
         ),
         WText(
-          'crossAxisCount: $crossAxis',
+          result,
           className: 'font-mono text-sm text-slate-600 dark:text-slate-300',
         ),
       ],

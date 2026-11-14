@@ -126,7 +126,10 @@ class DisplayExamplePage extends StatelessWidget {
             children: const [
               _RefRow(cls: 'block', body: 'Default. Container or Column.'),
               _RefRow(cls: 'flex', body: 'Row/Column with flex semantics.'),
-              _RefRow(cls: 'grid', body: 'Grid of n equal columns with grid-cols-{n}.'),
+              _RefRow(
+                cls: 'grid',
+                body: 'Grid of n equal columns with grid-cols-{n}.',
+              ),
               _RefRow(cls: 'wrap', body: 'Wrap widget: multi-line flow.'),
               _RefRow(
                 cls: 'hidden',

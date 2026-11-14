@@ -53,7 +53,7 @@ WDiv(
 | `grid-cols-6` | 6 equal columns |
 | `grid-cols-12` | 12 equal columns |
 
-Cells wrap onto a new row after every `n` items, so the grid is a `Wrap` with computed column widths, not a Flutter `GridView`.
+Cells wrap onto a new row after every `n` items. By default the grid is a `Wrap` with computed column widths, not a Flutter `GridView`; with `items-stretch` it is a column of equal-height rows, and with `overflow-x-auto` or `overflow-x-scroll` it is a single `Row` whose cells keep their intrinsic width.
 
 > [!NOTE]
 > Wind's parser supports **any integer** value for `grid-cols-{n}`, not just the standard Tailwind scale (1-12).

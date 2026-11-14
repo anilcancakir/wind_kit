@@ -183,7 +183,7 @@ The display utility does not support arbitrary values. You must use one of the p
 <a name="customizing-theme"></a>
 ## Customizing Theme
 
-Display utilities are structural and cannot be customised via `WindThemeData`. They map directly to Flutter widgets (`Row`, `Column`, `Wrap`, `GridView`).
+Display utilities are structural and cannot be customised via `WindThemeData`. They map directly to Flutter widgets (`Row`, `Column`, `Wrap`; `grid` is a `Wrap` with computed column widths by default, a column of equal-height rows with `items-stretch` and a single `Row` with horizontal overflow scroll).
 
 <a name="related-documentation"></a>
 ## Related Documentation

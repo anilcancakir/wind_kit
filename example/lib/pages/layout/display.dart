@@ -15,7 +15,7 @@ class DisplayExamplePage extends StatelessWidget {
       children: [
         ExampleSection(
           title: 'Basic Usage',
-          description: 'The display utility decides whether WDiv renders a Container, Row/Column, GridView, Wrap, or SizedBox.shrink.',
+          description: 'The display utility decides whether WDiv renders a Container, Row/Column, a grid of equal columns, Wrap, or SizedBox.shrink.',
           child: _CodeBlock(
             code:
                 'WDiv(className: "flex gap-4", children: [...])\n'
@@ -57,7 +57,8 @@ class DisplayExamplePage extends StatelessWidget {
         ),
         ExampleSection(
           title: 'Grid',
-          description: 'grid resolves to a GridView with crossAxisCount = grid-cols-{n}.',
+          description:
+              'grid lays the children out in grid-cols-{n} equal columns.',
           child: WDiv(
             className: 'grid grid-cols-3 gap-3',
             children: const [
@@ -125,7 +126,10 @@ class DisplayExamplePage extends StatelessWidget {
             children: const [
               _RefRow(cls: 'block', body: 'Default. Container or Column.'),
               _RefRow(cls: 'flex', body: 'Row/Column with flex semantics.'),
-              _RefRow(cls: 'grid', body: 'GridView with grid-cols-{n}.'),
+              _RefRow(
+                cls: 'grid',
+                body: 'Grid of n equal columns with grid-cols-{n}.',
+              ),
               _RefRow(cls: 'wrap', body: 'Wrap widget: multi-line flow.'),
               _RefRow(
                 cls: 'hidden',

@@ -7,6 +7,7 @@ Add wind_kit to a Flutter app, wrap it in `WindTheme` and style your first widge
 - [Basic Setup](#basic-setup)
 - [Alternative Setup](#alternative-setup)
 - [Verify Installation](#verify-installation)
+- [Related Documentation](#related-documentation)
 
 <x-preview path="" size="lg" source="example/lib/pages/getting-started/installation_basic.dart"></x-preview>
 
@@ -132,3 +133,10 @@ class HomePage extends StatelessWidget {
 ```
 
 If you see a blue card with white text, the installation is successful.
+
+<a name="related-documentation"></a>
+## Related Documentation
+
+- [Utility-First Fundamentals](../core-concepts/utility-first.md): how a className becomes a widget tree.
+- [Theme Configuration](../core-concepts/theming.md): customise the tokens `WindTheme` carries.
+- [Upgrade Guide](./upgrade-guide.md): the `material_ui` move and per-version changes.

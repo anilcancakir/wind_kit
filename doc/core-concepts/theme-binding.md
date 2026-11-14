@@ -7,6 +7,7 @@ Theme binding allows you to sync your Wind configuration with Flutter's native `
 - [Toggling Themes](#toggling-themes)
 - [Static Binding](#static-binding)
 - [Mapping Reference](#mapping-reference)
+- [Related Documentation](#related-documentation)
 
 <a name="why-bind-themes"></a>
 ## Why Bind Themes?
@@ -98,4 +99,11 @@ The `toThemeData()` method intelligently maps Wind tokens to their standard Flut
 Three rows have a fallback. `colors['primary']` only repaints Material widgets when it differs from Wind's seeded default (the `blue` swatch); otherwise the Material layer keeps its indigo baseline. `colors['secondary']` defaults to teal. Without `colors['background']`, `scaffoldBackgroundColor` reads the `bg-[#hex]` in your `bg-surface` alias (`dark:bg-[#hex]` in dark mode) and then falls back to white in light mode and `gray-900` in dark mode.
 
 This mapping ensures that your utility-first styles and native widgets stay perfectly in sync.
+
+<a name="related-documentation"></a>
+## Related Documentation
+
+- [Theme Configuration](./theming.md): the `WindThemeData` fields this page maps onto `ThemeData`.
+- [Dark Mode](./dark-mode.md): how brightness is toggled and followed from the system.
+- [Context Extensions](../utilities/context-extensions.md): `context.windTheme` for toggling the theme from a widget.
 

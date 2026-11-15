@@ -64,7 +64,6 @@ No production code without a failing test first. Zero analyzer issues, no format
 
 ## Testing
 
-- Parser tests, and widget tests that pump className-styled widgets, call `WindParser.clearCache()` in `setUp()`: the cache persists between tests and gives false positives.
 - The 90% line-coverage gate is the floor, not the target. A change that drops it adds tests in the same change set; the threshold never moves.
 - `// coverage:ignore-line` only for lines unreachable from `flutter test` (kDebugMode-only branches, `Platform.is*` branches that do not match the CI host), on the same line as the statement with a one-line why above it.
 

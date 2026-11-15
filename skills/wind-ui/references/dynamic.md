@@ -97,7 +97,7 @@ The `actions:` map is captured at construction; updating it requires rebuilding 
 Props keys follow the Wind widget constructor parameters, with renderer-specific names where the renderer differs from the constructor. A key the renderer does not read is dropped silently, and there is no snake_case → camelCase conversion.
 
 | Node | Keys the renderer reads |
-|---|---|
+|:---|:---|
 | `WDiv`, `WSpacer`, `WPopover` | `className` (`WPopover`: first child is the trigger, second the content) |
 | `WText` | `text` (or `value`) for the string, `className` |
 | `WButton` | `onTap` (action), `disabled`, `isLoading`, `className`; the first child is the content |
@@ -113,7 +113,7 @@ Props keys follow the Wind widget constructor parameters, with renderer-specific
 The Flutter core widgets read their own keys, all optional with the Flutter default when absent:
 
 | Node | Keys the renderer reads |
-|---|---|
+|:---|:---|
 | `Column`, `Row` | `mainAxisSize` (`max`, else `min`), `mainAxisAlignment` (`center`, `end`, `spaceBetween`, `spaceAround`, `spaceEvenly`, also hyphenated; else `start`), `crossAxisAlignment` (`start`, `end`, `stretch`, `baseline`; else `center`) |
 | `SizedBox`, `Container` | `width`, `height` (`Container` builds a `SizedBox`: it has no colour, padding or decoration keys) |
 | `Expanded`, `Spacer` | `flex` |

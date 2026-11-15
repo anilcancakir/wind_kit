@@ -42,7 +42,7 @@ void main() {
 For each W-prefix widget with a non-empty `className`, the resolver returns a `Map<String, Object?>` with the fields below (`bgColor` and `textColor` are present only when non-null):
 
 | Field | Type | Source |
-|---|---|---|
+|:---|:---|:---|
 | `className` | `String` | The raw className passed to the widget |
 | `breakpoint` | `String` | Active breakpoint at render time: `'base'`, or a key of `theme.screens` (`'sm'`, `'md'`, `'lg'`, `'xl'`, `'2xl'` by default; a custom `screens` map changes them) |
 | `brightness` | `String` | `'light'` or `'dark'` |

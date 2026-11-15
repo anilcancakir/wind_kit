@@ -8,8 +8,13 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+---
+
+## [1.12.1] - 2026-11-15
+
 ### Fixed
 
+- **`llms.txt` links `PROJECT.md`.** The index now points an agent at the scope and the decisions already made. (`llms.txt`)
 - **The `grid-cols-N` docs no longer say the grid is a Flutter `GridView` with `crossAxisCount: N`.** A `grid` is a `Wrap` with computed column widths (or, with `items-stretch`, a column of equal-height rows); the Quick Reference on `doc/layout/grid.md`, the Display page and the gallery now read "N equal columns", and the page names the `Row` used with horizontal overflow scroll. (`doc/layout/grid.md`, `doc/layout/display.md`, `example/lib/pages/layout/display.dart`, `example/lib/pages/layout/grid_cols.dart`, #305)
 - **The press-state advice is one answer everywhere.** The README and the `WDiv` page said to pass `states: {'pressed'}`, while the state guide, `llms.txt` and the skill said `states: {'active'}`; they now all say `active`, the state the `active:` prefix reads. (`README.md`, `doc/widgets/w-div.md`, #305)
 - **Eleven doc pages gain a `## Related Documentation` section** (dark mode, debugging, theme binding, theming, utility-first, installation, upgrade guide and the colour, responsive, spacing and typography helpers), and the Z-Index, Opacity and WindRecipe pages use the same bare-list table of contents as every other page. (`doc/core-concepts/`, `doc/getting-started/`, `doc/utilities/`, `doc/layout/z-index.md`, `doc/styling/opacity.md`, `doc/styling/wind-recipe.md`, #305)
@@ -578,7 +583,8 @@ Production deps: `flutter` (SDK), `flutter_svg ^2.0.0`, `fluttersdk_wind_diagnos
 
 The 1.0.0-alpha.1 through 1.0.0-alpha.10 release notes (Feb 2026 to May 2026) are preserved in git history and on the `v0` branch. The 0.0.x line is end-of-life; consumers pin to `^1.0.0` going forward.
 
-[Unreleased]: https://github.com/anilcancakir/wind_kit/compare/1.12.0...HEAD
+[Unreleased]: https://github.com/anilcancakir/wind_kit/compare/1.12.1...HEAD
+[1.12.1]: https://github.com/anilcancakir/wind_kit/releases/tag/1.12.1
 [1.12.0]: https://github.com/anilcancakir/wind_kit/releases/tag/1.12.0
 [1.11.1]: https://github.com/anilcancakir/wind_kit/releases/tag/1.11.1
 [1.11.0]: https://github.com/anilcancakir/wind_kit/releases/tag/1.11.0

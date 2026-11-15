@@ -55,7 +55,7 @@ Inline colour escape hatches that bypass the cache key:
 ## 2. Layout (flexbox + grid + display)
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `flex` | Sets `displayType = flex` (renders `Row` or `Column` based on `flex-row` / `flex-col`) |
 | `grid` | Sets `displayType = grid` (renders `Wrap`, not virtualised; for that use `GridView.builder`) |
 | `wrap` | Sets `displayType = wrap` (renders `Wrap`) |
@@ -87,7 +87,7 @@ Inline colour escape hatches that bypass the cache key:
 Gap tokens (inside `flex` / `wrap` / `grid`):
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `gap-N` | Both-axis gap |
 | `gap-x-N` / `gap-y-N` | Axis-specific |
 | `space-x-N` / `space-y-N` | Same as `gap-x-N` / `gap-y-N` (they parse to the same gap) |
@@ -101,7 +101,7 @@ Arbitrary: `gap-[10px]`, `gap-x-[3.5]`, `space-y-[12px]`. The `px` suffix is opt
 Base unit: `4 px` per step (`WindThemeData.baseSpacingUnit`). `p-4` = 16 px.
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `p-N` / `px-N` / `py-N` / `pt-N` / `pr-N` / `pb-N` / `pl-N` | Padding (all four / horizontal / vertical / one side) |
 | `m-N` / `mx-N` / `my-N` / `mt-N` / `mr-N` / `mb-N` / `ml-N` | Margin |
 | `mx-auto` | Horizontal centring |
@@ -120,7 +120,7 @@ Not supported (silently no-op):
 ## 4. Sizing (width + height + min/max)
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `w-N` / `h-N` | Theme scale (4 px per unit) |
 | `size-N` / `size-full` / `size-1/2` / `size-screen` / `size-[20px]` / `size-[50%]` | Sets both width and height in one token (Tailwind v3.4+). Works on a childless `WDiv` (e.g. a `size-2 rounded-full` status dot). A later same-mode `w-*` / `h-*` overrides the matching axis (`size-2 w-8` -> width 32, height 8); mixing an absolute and a fractional value on one axis retains both, exactly as `w-*` / `h-*` already do. |
 | `w-1/2` / `w-1/3` / `w-2/3` / `w-1/4` / `w-3/4` | Fractional (any numerator/denominator) |
@@ -146,7 +146,7 @@ Not supported:
 Wind translates `relative` + child `absolute` into a Flutter `Stack` + `Positioned` tree.
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `relative` | Marks parent as Stack-host |
 | `absolute` | Removes child from flow; participates as `Positioned`. Requires a `relative` parent. |
 | `top-N` / `right-N` / `bottom-N` / `left-N` | Directional offsets, theme scale |
@@ -166,7 +166,7 @@ Not supported:
 Colour tokens always need a `dark:` peer.
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `bg-{family}-{shade}` | Theme colour (`bg-red-500`, `bg-blue-300`) |
 | `bg-{family}` | Defaults to shade 500 (`bg-red` = `bg-red-500`) |
 | `bg-[#hex]` | Arbitrary hex (3, 4, 6, or 8 chars; `#`-prefixed inside brackets). Alpha leads in the 4- and 8-char forms: Flutter packs `AARRGGBB` where CSS writes `RRGGBBAA`, so 50%-alpha red is `bg-[#80ff0000]`, never `bg-[#ff000080]`. Nothing between those lengths: a 5- or 7-char value is a typo and drops silently. |
@@ -195,7 +195,7 @@ Custom families via `WindThemeData.colors`: `{'brand': MaterialColor(...)}` make
 ## 7. Border + ring + radius
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `border` | Default uniform width (theme `DEFAULT` = 1 px) |
 | `border-N` | Numeric width: any integer works (`border-2`, `border-4`, `border-8`; the theme names 0, 2, 4 and 8) |
 | `border-[3px]` | Arbitrary width |
@@ -207,7 +207,7 @@ Custom families via `WindThemeData.colors`: `{'brand': MaterialColor(...)}` make
 Border radius:
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `rounded` | Default radius (4 px) |
 | `rounded-{none|sm|md|lg|xl|2xl|3xl|full}` | Preset (none=0, sm=2, md=6, lg=8, xl=12, 2xl=16, 3xl=24, full=9999) |
 | `rounded-{t|r|b|l}` | Directional pair (`rounded-t-lg` rounds top corners) |
@@ -218,7 +218,7 @@ Border radius:
 Ring (Tailwind-style focus ring, implemented as `BoxShadow` with spread only):
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `ring` | Default width (3 px) |
 | `ring-N` | Custom width from the theme's `ringWidths` (`ring-[3px]` is not supported) |
 | `ring-{family}-{shade}` / `ring-[#hex]` / `ring-{family}-{shade}/{N}` | Ring colour (defaults to blue-500) |
@@ -232,7 +232,7 @@ Ring (Tailwind-style focus ring, implemented as `BoxShadow` with spread only):
 Shadow:
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `shadow` | Default preset |
 | `shadow-{none|sm|md|lg|xl|2xl}` | Preset elevations |
 | `shadow-inner` | Not supported: the parser drops it silently |
@@ -241,7 +241,7 @@ Shadow:
 Opacity:
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `opacity-{0\|5\|10\|20\|25\|30\|40\|50\|60\|70\|75\|80\|90\|95\|100}` | Preset percentages (`opacity-50` = 50%); 15, 35, 45 and 55 are not steps and drop silently |
 | `opacity-[0.5]` / `opacity-[0.75]` | Arbitrary decimal (clamped to 0-1) |
 
@@ -254,7 +254,7 @@ The slash-syntax `/N` modifier applies only to colours, not as a standalone toke
 Overflow:
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `overflow-hidden` / `overflow-visible` / `overflow-scroll` / `overflow-auto` | Uniform |
 | `overflow-x-hidden` / `-visible` / `-scroll` / `-auto` | Horizontal |
 | `overflow-y-hidden` / `-visible` / `-scroll` / `-auto` | Vertical |
@@ -266,7 +266,7 @@ When `overflow-y-auto` (or any scroll variant) appears, also pass the constructo
 Aspect ratio:
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `aspect-auto` | No constraint |
 | `aspect-square` | 1:1 |
 | `aspect-video` | 16:9 |
@@ -275,7 +275,7 @@ Aspect ratio:
 Z-index:
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `z-0` / `z-10` / `z-20` / `z-30` / `z-40` / `z-50` | Preset levels |
 | `z-[N]` | Arbitrary signed integer |
 | `z-auto` | Clears z-index |
@@ -291,7 +291,7 @@ Order: covered in §2.
 **Size** (stops at 6xl; `7xl` / `8xl` / `9xl` silently no-op):
 
 | Token | Size |
-|---|---|
+|:---|:---|
 | `text-xs` | 12 px |
 | `text-sm` | 14 px |
 | `text-base` | 16 px |
@@ -335,7 +335,7 @@ Order: covered in §2.
 Transition:
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `duration-{75|100|150|200|300|500|700|1000}` | Theme preset (ms) |
 | `duration-[500ms]` | Arbitrary |
 | `ease-linear` / `ease-in` / `ease-out` / `ease-in-out` | Curve |
@@ -345,7 +345,7 @@ Transition:
 Animation (all infinite loops):
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `animate-spin` | 360° rotation |
 | `animate-pulse` | Opacity fade in/out |
 | `animate-bounce` | Vertical bounce |
@@ -361,7 +361,7 @@ For one-shot or state-driven animations, reach for Flutter's `AnimatedContainer`
 For `WSvg(src:)` / `WSvg.string(...)`:
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `fill-{family}-{shade}` / `fill-[#hex]` / `fill-{family}-{shade}/{N}` | Apply `ColorFilter(mode: srcIn)` to recolour |
 | `fill-none` | Transparent fill |
 | `fill-current` | Inherit from `DefaultTextStyle.color` |
@@ -378,7 +378,7 @@ For sizing: `w-N` / `h-N` work on `WSvg` and apply via the underlying `SvgPictur
 ## 13. Debug token
 
 | Token | Effect |
-|---|---|
+|:---|:---|
 | `debug` | Sets `WindStyle.debug = true`. Triggers `WindLogger` to log the resolved composition tree + final styles + build time (µs) via `debugPrint`. Visual debug borders are not drawn. |
 
 Remove before production. The debug bridge for external tooling (tapir) uses `Wind.installDebugResolver()` instead; see `debug.md`.
@@ -392,7 +392,7 @@ All prefixes stack freely with `:`. Prefix order is arbitrary; all stacked prefi
 **Responsive (mobile-first, min-width):**
 
 | Prefix | Default width |
-|---|---|
+|:---|:---|
 | `sm:` | ≥ 640 px |
 | `md:` | ≥ 768 px |
 | `lg:` | ≥ 1024 px |
@@ -421,7 +421,7 @@ Not supported as prefixes:
 Bracket syntax `[VALUE]` for one-off pixel-exact values where the theme scale does not fit.
 
 | Family | Bracket syntax | Examples |
-|---|---|---|
+|:---|:---|:---|
 | Padding | `p-[N]` `pt-[N]` `px-[N]` | `p-[18px]`, `pt-[5]`, `px-[3.5]`. No `%`. `p-[13]` is 13 px, while `p-13` is 52 px. |
 | Margin | `m-[N]` `mt-[N]` `mx-[N]` | Same shape. No `%`. No negatives. |
 | Gap | `gap-[N]` `gap-x-[N]` `space-y-[N]` | Same shape. |
@@ -453,7 +453,7 @@ Arbitrary values bypass theme lookup (matched before theme resolution). They are
 `cursor-*` sets the mouse cursor over an element via a `MouseRegion` that `WDiv` adds when a cursor token is present. Pointer-only: inert on touch platforms. Last token wins; an unknown `cursor-*` name is a silent no-op.
 
 | Token | Flutter `SystemMouseCursors` |
-|-------|------------------------------|
+|:-------|:------------------------------|
 | `cursor-auto` / `cursor-default` | `basic` (no "auto" cursor in Flutter) |
 | `cursor-pointer` | `click` |
 | `cursor-wait` / `cursor-progress` | `wait` / `progress` |

@@ -14,6 +14,7 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.
 - **The press-state advice is one answer everywhere.** The README and the `WDiv` page said to pass `states: {'pressed'}`, while the state guide, `llms.txt` and the skill said `states: {'active'}`; they now all say `active`, the state the `active:` prefix reads. (`README.md`, `doc/widgets/w-div.md`, #305)
 - **Eleven doc pages gain a `## Related Documentation` section** (dark mode, debugging, theme binding, theming, utility-first, installation, upgrade guide and the colour, responsive, spacing and typography helpers), and the Z-Index, Opacity and WindRecipe pages use the same bare-list table of contents as every other page. (`doc/core-concepts/`, `doc/getting-started/`, `doc/utilities/`, `doc/layout/z-index.md`, `doc/styling/opacity.md`, `doc/styling/wind-recipe.md`, #305)
 - **The Windows and macOS example runners carry `com.anilcancakir.wind_kit` instead of the old `com.fluttersdk.wind` company string, and the stale Android `MainActivity` of the old package name is gone.** (`example/windows/runner/Runner.rc`, `example/macos/Runner/Configs/AppInfo.xcconfig`, `example/android/`, #305)
+- **The tables in the README and the skill are left-aligned.** They used the unaligned `|---|` separator; they use `|:---|` like the docs. (`README.md`, `skills/`)
 
 ---
 

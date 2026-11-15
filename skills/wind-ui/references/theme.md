@@ -232,7 +232,7 @@ className: '''
 **Common dark palettes:**
 
 | Use | Light | Dark |
-|---|---|---|
+|:---|:---|:---|
 | Page background | `bg-white` or `bg-gray-50` | `dark:bg-gray-900` (preferred) or `dark:bg-slate-900` (avoid pure black; reduces eye strain) |
 | Card background | `bg-white` | `dark:bg-gray-800` |
 | Primary text | `text-gray-900` | `dark:text-white` or `dark:text-gray-100` |
@@ -295,7 +295,7 @@ WindTheme(
 Mobile-first. Base classes apply to all sizes; responsive prefixes override at and above the named width.
 
 | Prefix | Default min-width | Custom theme key |
-|---|---|---|
+|:---|:---|:---|
 | `sm:` | 640 px | `screens['sm']` |
 | `md:` | 768 px | `screens['md']` |
 | `lg:` | 1024 px | `screens['lg']` |
@@ -330,7 +330,7 @@ WBreakpoint(
 Resolved at runtime via `WindPlatformService` (singleton; checks `kIsWeb` first, then `defaultTargetPlatform`).
 
 | Prefix | True when |
-|---|---|
+|:---|:---|
 | `web:` | Running on web (`kIsWeb`) |
 | `ios:` | iOS native |
 | `android:` | Android native |

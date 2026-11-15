@@ -42,7 +42,7 @@ Memorise these and the rest follows.
 When Flutter throws, map the error to a Wind-shaped fix.
 
 | Assertion | Cause | Fix |
-|---|---|---|
+|:---|:---|:---|
 | `A RenderFlex overflowed by N pixels` | Sum of non-flex children exceeds the Row/Column's bounded constraint. | Wrap the offending child in `WDiv(className: 'flex-1', child: ...)` (a bare `w-full` Row child is already auto-treated as `flex-1`) |
 | `RenderFlex children have non-zero flex but incoming width/height constraints are unbounded` | `flex-1` or `Expanded` inside a parent that does not constrain the main axis (typically a `SingleChildScrollView`) | Either remove the `flex-1` from the child or give the parent a bounded size (`h-screen`, fixed `h-N`, or `min-h-screen`) |
 | `An InputDecorator cannot have an unbounded width` | `WFormInput` / `TextField` in a Row without `flex-1` or fixed width | Wrap in `WDiv(className: 'flex-1', child: WFormInput(...))` |
@@ -462,7 +462,7 @@ For very different mobile vs desktop layouts (not just sizing), reach for `WBrea
 ## Anti-patterns
 
 | Wrong | Why | Right |
-|---|---|---|
+|:---|:---|:---|
 | `WDiv(className: 'w-full')` inside a Row (works, treated as `flex-1`) | No failure, just intent clarity | `'flex-1'` (clearer) |
 | `WDiv(className: 'h-full overflow-y-auto')` inside a Column | `h-full` takes the screen height, so the Column overflows | `'flex-1 overflow-y-auto'` + `scrollPrimary: true`, parent has `h-full` |
 | `WDiv(className: 'absolute top-0')` without `relative` ancestor | No Stack to anchor | wrap parent in `'relative'` |

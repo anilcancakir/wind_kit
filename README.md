@@ -27,7 +27,7 @@
 ## At a glance
 
 | Fact | Value |
-|---|---|
+|:---|:---|
 | Package | [`wind_kit`](https://pub.dev/packages/wind_kit) |
 | Install | `flutter pub add wind_kit material_ui` |
 | Import | `package:wind_kit/wind_kit.dart` (the only barrel) |
@@ -288,7 +288,7 @@ A focused field lifts the whole input clear of the keyboard and of the keyboard 
 Rules for an agent writing wind_kit code. Each one is a mistake the maintainers already made once.
 
 | Do | Because |
-|----|---------|
+|:----|:---------|
 | Import only `package:wind_kit/wind_kit.dart` | There is one barrel and no sub-barrels. |
 | Pair every colour token (`bg-`, `text-` colour, `border-`, `ring-`, `shadow-`, `fill-`) with its `dark:` peer in the same className | A missing pair is a bug and nothing reports it. |
 | Route conditions through `states:` and prefixed classes, never Dart interpolation inside a className | An interpolated token hides from the dark-pair review and from grep, and every distinct string adds a cache entry. |

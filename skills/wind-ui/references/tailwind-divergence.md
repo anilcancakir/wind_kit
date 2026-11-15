@@ -19,7 +19,7 @@ The base rule: Wind aims for syntactic familiarity, not semantic equivalence. Mo
 ## 1. Mental-model differences (read first)
 
 | Concept | Tailwind | Wind |
-|---|---|---|
+|:---|:---|:---|
 | Output target | CSS classes injected at build time, applied to DOM | `WindStyle` value object cached in memory, consumed by W-widgets at build time |
 | Spacing unit | `0.25rem` (depends on root font-size) | Logical pixels (4 px per step by default; `WindThemeData.baseSpacingUnit`) |
 | Wrapping | `flex-wrap` (CSS flex-wrap property) | `wrap` (Flutter `Wrap` widget is structurally separate from `flex`) |
@@ -37,7 +37,7 @@ The base rule: Wind aims for syntactic familiarity, not semantic equivalence. Mo
 ## 2. Tokens that exist in both but behave differently
 
 | Token | Tailwind | Wind |
-|---|---|---|
+|:---|:---|:---|
 | `flex-wrap` | Enables wrapping on a flex container | Aliased directly to `wrap` (the canonical token); emits a one-time `kDebugMode` hint pointing at `wrap` |
 | `text-{xs..6xl}` | Sizes go to `9xl` (128 px) | Stops at `6xl` (60 px). `7xl` / `8xl` / `9xl` silently no-op |
 | `text-7xl`+ | Larger sizes available | No-op |
@@ -195,7 +195,7 @@ Wind adds a small set of tokens for Flutter-specific scenarios.
 Wind 1.0 is anchored to Tailwind v3 semantics for shadow / radius / blur / ring naming. If you're migrating from a Tailwind v4 project, watch these renames.
 
 | v4 name | v3 name (Wind keeps this) |
-|---|---|
+|:---|:---|
 | `shadow-xs` | `shadow-sm` |
 | `shadow-sm` | `shadow` |
 | `blur-xs` | `blur-sm` (Wind has no `blur-*` anyway) |
@@ -336,7 +336,7 @@ Notes on the port:
 These canonical Tailwind classes are silently ignored by wind (unknown tokens are dropped). Use the listed equivalent:
 
 | Tailwind | Status | wind equivalent |
-|----------|--------|-----------------|
+|:----------|:--------|:-----------------|
 | `inline-flex` | recognised, no effect (Flutter has no inline layout) | `flex` |
 | `rounded-s-*` / `rounded-e-*` | unsupported (logical start/end radius) | `rounded-l-*` / `rounded-r-*` |
 | `ms-*` / `me-*` | unsupported (logical inline margin) | `ml-*` / `mr-*` |

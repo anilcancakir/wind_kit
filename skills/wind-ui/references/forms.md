@@ -21,7 +21,7 @@ Building forms with validation. Use this file when picking between raw `W*` and 
 ## 1. Two widget families: raw vs FormField
 
 | Family | When | Validation | Has `Form` ancestor? |
-|---|---|---|---|
+|:---|:---|:---|:---|
 | `WInput`, `WSelect`, `WCheckbox`, `WDatePicker` | Standalone fields; external state library (Riverpod / Bloc / ChangeNotifier) manages value; bespoke validation in the controller | Caller inspects value and renders error UI manually | Not required |
 | `WFormInput`, `WFormSelect`, `WFormMultiSelect`, `WFormCheckbox`, `WFormDatePicker` | Multi-field forms with declarative validators and batch validate/save/reset | Auto: pass `validator: String? Function(T?)?`. The widget injects `error:` state when validation fails and renders error text below the field | Required (`Form` + `GlobalKey<FormState>`) |
 
@@ -148,7 +148,7 @@ Return `null` for valid, return a non-empty string for invalid. The string becom
 `AutovalidateMode` (Flutter enum, passed to each WForm*):
 
 | Value | Behaviour |
-|---|---|
+|:---|:---|
 | `disabled` (default) | Validate only on explicit `_formKey.currentState!.validate()` call |
 | `always` | Validate on every rebuild, even before user interaction; shows errors immediately on mount |
 | `onUserInteraction` | Validate only after the user has changed the field at least once. **Default choice for most Wind forms.** |
@@ -384,7 +384,7 @@ When the order is not a clean run of adjacent fields, do not try to fix it with 
 ## Anti-patterns
 
 | Wrong | Why | Right |
-|---|---|---|
+|:---|:---|:---|
 | `_formKey = GlobalKey<FormState>()` inside `build` | Recreates the key on every rebuild; loses form state | Declare as `final` field on `State` |
 | `controller.dispose()` outside `dispose()` | Disposal must run in `dispose()` for safe lifecycle | Move to `dispose()` |
 | `validator: async (v) => await check(v)` | Validator signature is sync; async returns get dropped | Keep the server message in your own state, return it from the validator and call `validate()` again after the async check |

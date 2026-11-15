@@ -1,8 +1,8 @@
 ---
 name: wind-ui
 description: "Style Flutter UI with wind_kit: Tailwind-syntax className, W-widgets, dark: pairs, stacked prefixes, WindRecipe and WDynamic."
-when_to_use: "Use when writing, editing or auditing Flutter UI in an app that uses wind_kit: a className, W-widget, theme or overflow."
 version: 2.32.0
+when_to_use: "Use when writing, editing or auditing Flutter UI in an app that uses wind_kit: a className, W-widget, theme or overflow."
 ---
 
 <!-- wind_kit 1.12.x | Skill v2.32.0 (2026-11-13) -->
@@ -82,7 +82,7 @@ These hold for every line of Wind code. Apply each as a hard constraint, not a s
 The headline 25 (table below) are the ones an agent reaches for daily. Two more cover narrow surfaces and live outside the table: `WKeyboardActions` (iOS keyboard toolbar overlay for `Done` / `Next` actions on a focused `TextField`) and `WindAnimationWrapper` (the internal stateful wrapper that drives looping `animate-*` tokens; consumers normally do not instantiate it directly).
 
 | Widget | Category | Required parameters | One-line purpose |
-|---|---|---|---|
+|:---|:---|:---|:---|
 | `WDiv` | Layout / container | none | Universal container; auto-wraps in `WAnchor` when className contains `hover:` / `focus:` / `active:`. `child` XOR `children`. Inline colour prop: `backgroundColor`. |
 | `WSpacer` | Layout | none | Lightweight `SizedBox` that reads only `w-N` / `h-N`. Skips every other token. |
 | `WBreakpoint` | Structural | `base:` | Per-breakpoint `WidgetBuilder` map (`base`, `sm`, `md`, `lg`, `xl`, `xxl`, plus theme-defined custom keys). Escape hatch when className prefixes are not enough. |
@@ -149,7 +149,7 @@ A compound condition value is a `String` (exact) or a `List<String>` (OR match):
 ## 3. The state system (three layers)
 
 | Layer | Set by | Examples |
-|---|---|---|
+|:---|:---|:---|
 | **Automatic** | `WAnchor` from pointer / keyboard events | `hover:` (MouseRegion `onEnter`/`onExit`), `focus:` (`FocusNode` listener) |
 | **Framework-managed** | The widget itself, from its own props | `loading:` (WButton.isLoading), `disabled:` (any widget's `disabled` / `enabled` prop), `checked:` (WCheckbox.value, WSwitch.value), `selected:` (WRadio when value==groupValue, WTabs active tab), `error:` (WForm* when `FormFieldState.hasError`) |
 | **Consumer-passed** | `states: Set<String>?` on the widget | `selected:` (card toggles), `highlighted:`, `new:`, any custom string. No registration required. |
@@ -204,7 +204,7 @@ Inline this catalogue as your default reach-for set. For the full per-parser reg
 A developer fluent in Tailwind v3 or v4 will default to assumptions Wind partially honours, partially rejects. Full divergence catalogue: `${CLAUDE_SKILL_DIR}/references/tailwind-divergence.md`.
 
 | Tailwind expectation | Wind reality |
-|---|---|
+|:---|:---|
 | `flex-wrap` enables wrapping | Aliased to `wrap` (Flutter `Wrap` is a separate widget); prefer `wrap` directly, `flex-wrap` prints a one-time debug hint. |
 | Font sizes go to `9xl` | Stop at `6xl` (60 px). `7xl`/`8xl`/`9xl` silently no-op; use `text-[72px]` for a larger size. |
 | `text-7xl` typo fails loudly | A token no parser recognises is dropped with a one-time `kDebugMode` hint (except the deliberate no-ops such as `transition` and `antialiased`); a recognised family with an unsupported value (like `text-7xl`, claimed by `text-*`) drops silently. Hand-check values. |
@@ -231,7 +231,7 @@ A developer fluent in Tailwind v3 or v4 will default to assumptions Wind partial
 Wind hides most boilerplate but never changes Flutter's "constraints down, sizes up, parent sets position" model. Six rules cover ~90% of overflow errors. Full recipe catalogue + assertion-to-fix mapping: `${CLAUDE_SKILL_DIR}/references/layouts.md`.
 
 | Rule | Wrong | Right |
-|---|---|---|
+|:---|:---|:---|
 | **Row children: prefer `flex-1`** (a bare `w-full` now also works, treated as `flex-1`) | n/a | `WDiv(className: 'flex flex-row', children: [WDiv(className: 'flex-1', ...)])` |
 | **A grow claim turns off `justify-*`'s shrink wrap** (so `flex-1` keeps the whole remainder, siblings stay at content width; `overflow-hidden` still wraps) | expecting `justify-between` to split the row evenly between a `flex-1` child and a 24 dp icon | `WDiv(className: 'flex flex-row justify-between', children: [WDiv(className: 'flex-1', ...), WIcon(...)])` |
 | **Scrollable children use `flex-1`, not `h-full`** | `WDiv(className: 'flex flex-col', children: [WDiv(className: 'overflow-y-auto h-full', ...)])` → unbounded height | `WDiv(className: 'flex flex-col h-full', children: [WDiv(className: 'flex-1 overflow-y-auto', scrollPrimary: true, ...)])` |
@@ -281,7 +281,7 @@ Never embed Dart expressions in className. Route every dynamic visual through `s
 Two widget families, parallel surface, different scope.
 
 | Family | Use when | Validation |
-|---|---|---|
+|:---|:---|:---|
 | Raw `WInput` / `WSelect` / `WCheckbox` / `WDatePicker` | Stateless reads, controlled forms managed by an external state library (Riverpod, Bloc, ChangeNotifier), or single fields without a Form | Manual: caller inspects `value` and renders error UI |
 | `WFormInput` / `WFormSelect` / `WFormMultiSelect` / `WFormCheckbox` / `WFormDatePicker` | Multi-field forms inside `Form` + `GlobalKey<FormState>`. Each widget extends `FormField<T>` and integrates with `FormState.validate()` | Auto: pass `validator: (T?) => String?`. `state.hasError` injects the `error:` state for `error:border-red-500` styling. Pass `autovalidateMode: AutovalidateMode.onUserInteraction` to keep the form quiet until first interaction. |
 
@@ -337,7 +337,7 @@ Full Form patterns + validation recipes + async error flow: `${CLAUDE_SKILL_DIR}
 ## 9. Wind ≠ Flutter rules of thumb
 
 | Need | Reach for |
-|---|---|
+|:---|:---|
 | App shell, navigation rails, drawer | `Scaffold` (Material), not WDiv |
 | Title bar | `AppBar` / `SliverAppBar` (Material) |
 | Modal sheet | `showModalBottomSheet(...)` (Material), content built with Wind |
@@ -372,7 +372,7 @@ Run `dart analyze` on the touched files and visually verify the change in light 
 ## 11. Common patterns (the agent will reach for these first)
 
 | Pattern | Recipe |
-|---|---|
+|:---|:---|
 | Centred card | `WDiv(className: 'mx-auto max-w-md p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm', child: ...)` |
 | Vertical stack | `WDiv(className: 'flex flex-col gap-4', children: [...])` |
 | Horizontal stack | `WDiv(className: 'flex flex-row items-center gap-3', children: [...])` |
@@ -400,7 +400,7 @@ Full recipe catalogue with code: `${CLAUDE_SKILL_DIR}/references/layouts.md`. Wh
 Compact catalogue of consistent footguns. Each entry: what's wrong, why, the corrected shape.
 
 | Wrong | Why | Right |
-|---|---|---|
+|:---|:---|:---|
 | `WDiv(child: x, children: [y])` | Construction-time assertion fails | one or the other |
 | `WIcon(Icons.settings)` | Filled Material icon (off-brand for Wind) | `WIcon(Icons.settings_outlined)` |
 | `className: 'flex-wrap'` | Works (aliased to `wrap`), but `wrap` is the canonical token and avoids the debug hint | `'wrap gap-2'` |
@@ -476,7 +476,7 @@ Test className-styled widgets with plain `flutter_test`: wrap the widget in a `W
 ## 15. References (load on trigger)
 
 | Load when... | File |
-|---|---|
+|:---|:---|
 | Verifying a className token exists, picking the right family, looking up an arbitrary-value pattern, or auditing for unsupported syntax | `${CLAUDE_SKILL_DIR}/references/tokens.md` |
 | Writing a specific W-widget and needing the full constructor surface (every named parameter, every default, every callback signature) | `${CLAUDE_SKILL_DIR}/references/widgets.md` |
 | Building a `Form`, picking between `WInput` and `WFormInput`, wiring `FormState.validate()`, handling async / server-side errors, the WFormDatePicker range gotcha | `${CLAUDE_SKILL_DIR}/references/forms.md` |

@@ -213,7 +213,14 @@ class _WFormCheckboxContent extends StatelessWidget {
     if (label != null) {
       labelWidget = label;
     } else if (labelText != null) {
-      labelWidget = WText(labelText!, className: labelClassName);
+      // The flex comes from a class token, not from a wrapper: WText wraps
+      // itself when the class carries a flex token, so a `flex-1` of the
+      // caller's would otherwise sit inside a second Flexible and throw. The
+      // token goes first so the caller's own `flex-*` or `shrink-0` wins.
+      labelWidget = WText(
+        labelText!,
+        className: 'flex-initial $labelClassName',
+      );
     }
 
     // Determine bottom text: error takes priority over hint

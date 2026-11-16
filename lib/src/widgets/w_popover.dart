@@ -1032,11 +1032,18 @@ class _WPopoverState extends State<WPopover> {
     // horizontal clamp.
     double effectiveMaxHeight = widget.maxHeight;
     if (widget.autoFlip && triggerBox != null && triggerBox.hasSize) {
+      // The soft keyboard sits on top of the window, so the room below the
+      // trigger ends where the keyboard starts. The overlay reads the window's
+      // insets whole; a Scaffold hides them from the widgets in its body.
+      final Size window = MediaQuery.sizeOf(context);
       final double available = computeAvailableHeight(
         alignment: effectiveAlignment,
         triggerPosition: triggerBox.localToGlobal(Offset.zero),
         triggerSize: triggerBox.size,
-        screenSize: MediaQuery.sizeOf(context),
+        screenSize: Size(
+          window.width,
+          window.height - MediaQuery.viewInsetsOf(context).bottom,
+        ),
         offset: widget.offset,
       );
       if (available < effectiveMaxHeight) effectiveMaxHeight = available;

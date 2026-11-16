@@ -111,6 +111,17 @@ void main() {
       },
     );
 
+    testWidgets('a popover stays above the soft keyboard', (tester) async {
+      // 600 tall with a 250 pixel keyboard: the room below a trigger at 60 is
+      // about 238 pixels, not the 488 the bare window height would suggest.
+      tester.view.viewInsets = const FakeViewPadding(bottom: 250);
+      addTearDown(tester.view.resetViewInsets);
+
+      final Rect panel = await openAndMeasure(tester, _popover(), top: 60);
+
+      expect(panel.bottom, lessThanOrEqualTo(600 - 250));
+    });
+
     testWidgets('a popover that fits keeps its own maxHeight', (tester) async {
       final Rect panel = await openAndMeasure(
         tester,

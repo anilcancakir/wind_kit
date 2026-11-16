@@ -86,7 +86,7 @@ const WPopover({
 | `controller` | `PopoverController?` | `null` | Optional controller for programmatic show/hide/toggle. |
 | `alignment` | `PopoverAlignment` | `bottomLeft` | Where to position the popover relative to the trigger. |
 | `offset` | `Offset` | `Offset(0, 4)` | Gap between the trigger and the popover. |
-| `maxHeight` | `double` | `400` | Maximum height for the overlay. Content taller than this does not scroll by itself: give the popover `overflow-y-auto` (or build the content on a scroll view). With `autoFlip` on, the overlay is also capped at the room left on its side of the trigger, so it never runs off the window. |
+| `maxHeight` | `double` | `400` | Maximum height for the overlay. Content taller than this does not scroll by itself: give the popover `overflow-y-auto` (or build the content on a scroll view). With `autoFlip` on, the overlay is also capped at the room left on its side of the trigger, so it never runs off the window or under the soft keyboard. |
 | `width` | `double?` | `null` | Pins the overlay to a fixed width (like `WSelect`'s `menuWidth`). Overrides a `w-*` token in `className`. |
 | `maxWidth` | `double?` | `null` | Upper bound for the overlay width. Falls back to a `max-w-*` token, then to the screen width, so the overlay never stretches off-screen. Ignored when a fixed `width` (or `w-*`) is set. |
 | `enableTriggerOnTap` | `bool` | `true` | Whether tapping the trigger toggles the popover. |

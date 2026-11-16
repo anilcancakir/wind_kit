@@ -8,6 +8,10 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+---
+
+## [1.12.2] - 2026-11-16
+
 ### Fixed
 
 - **A long `labelText` on `WFormCheckbox` wraps onto further lines inside the width its parent gives it, instead of overflowing.** The label was a bare `WText` in the `axis-min` row beside the checkbox, and a non-flexible `Row` child cannot wrap, so a 70 character `labelText` in a 200 px wide `SizedBox` threw "A RenderFlex overflowed by 826 pixels on the right"; the same label passed as `label: Flexible(child: WText(...))` threw nothing. The `labelText` label now carries a `flex-initial` class token ahead of `labelClassName`, so `WText` makes itself a loose `Flexible`: a short label keeps its natural width, a horizontal `SingleChildScrollView` (unbounded width) adds no new assertion, and a `labelClassName` with a `flex-*` token of its own still wins. A wrapper widget was tried first and dropped, because `WText` already wraps itself for `flex-1` and the second wrapper threw a `ParentDataWidget` error. A `label:` widget is left as passed. `lib/src/widgets/w_form_checkbox.dart`, `test/widgets/w_form_checkbox_test.dart`, `doc/widgets/w-form-checkbox.md`
@@ -587,7 +591,8 @@ Production deps: `flutter` (SDK), `flutter_svg ^2.0.0`, `fluttersdk_wind_diagnos
 
 The 1.0.0-alpha.1 through 1.0.0-alpha.10 release notes (Feb 2026 to May 2026) are preserved in git history and on the `v0` branch. The 0.0.x line is end-of-life; consumers pin to `^1.0.0` going forward.
 
-[Unreleased]: https://github.com/anilcancakir/wind_kit/compare/1.12.1...HEAD
+[Unreleased]: https://github.com/anilcancakir/wind_kit/compare/1.12.2...HEAD
+[1.12.2]: https://github.com/anilcancakir/wind_kit/releases/tag/1.12.2
 [1.12.1]: https://github.com/anilcancakir/wind_kit/releases/tag/1.12.1
 [1.12.0]: https://github.com/anilcancakir/wind_kit/releases/tag/1.12.0
 [1.11.1]: https://github.com/anilcancakir/wind_kit/releases/tag/1.11.1

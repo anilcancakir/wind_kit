@@ -96,7 +96,7 @@ WFormCheckbox({
 
 ### Label & Hint Layout
 
-`WFormCheckbox` automatically handles the layout of the checkbox, label, and hint/error text. It uses a vertical flex container where the checkbox and label are aligned horizontally, and the hint or error is positioned below them.
+`WFormCheckbox` automatically handles the layout of the checkbox, label, and hint/error text. It uses a vertical flex container where the checkbox and label are aligned horizontally, and the hint or error is positioned below them. A long `labelText` wraps onto further lines inside the width the parent gives it; a `label` widget is placed as passed, so wrap it in a `Flexible` yourself when it needs to wrap.
 
 <x-preview path="widgets/w_form_checkbox_layout" size="md" source="example/lib/pages/widgets/w_form_checkbox_layout.dart"></x-preview>
 

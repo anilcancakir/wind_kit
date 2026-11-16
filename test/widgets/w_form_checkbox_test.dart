@@ -387,6 +387,118 @@ void main() {
       });
     });
 
+    group('Long Label', () {
+      const longLabel =
+          'I have read and agree to the Terms of Service and the Privacy '
+          'Policy of this service.';
+
+      Widget bounded(Widget child) {
+        return wrapWithTheme(
+          Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(width: 200, child: Form(child: child)),
+          ),
+        );
+      }
+
+      testWidgets('labelText wraps inside a bounded width', (tester) async {
+        expect(longLabel.length, greaterThanOrEqualTo(70));
+
+        await tester.pumpWidget(bounded(WFormCheckbox(labelText: longLabel)));
+
+        expect(tester.takeException(), isNull);
+        final labelRect = tester.getRect(find.text(longLabel));
+        expect(labelRect.right, lessThanOrEqualTo(200));
+        expect(labelRect.height, greaterThan(14 * 1.5));
+      });
+
+      testWidgets('a caller supplied Flexible label is not wrapped twice', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          bounded(
+            WFormCheckbox(
+              label: Flexible(child: WText(longLabel, className: 'text-sm')),
+            ),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(
+          tester.getRect(find.text(longLabel)).right,
+          lessThanOrEqualTo(200),
+        );
+      });
+
+      testWidgets(
+        'a labelClassName with its own flex token is not wrapped twice',
+        (tester) async {
+          // `flex-1` makes WText wrap itself in Expanded, which was a working way
+          // to get a wrapping label before labelText became flexible by default.
+          await tester.pumpWidget(
+            bounded(
+              WFormCheckbox(
+                labelText: longLabel,
+                labelClassName: 'text-sm flex-1',
+              ),
+            ),
+          );
+
+          expect(tester.takeException(), isNull);
+          expect(
+            tester.getRect(find.text(longLabel)).right,
+            lessThanOrEqualTo(200),
+          );
+        },
+      );
+
+      testWidgets('a labelClassName with shrink-0 keeps the label unshrunk', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          bounded(
+            WFormCheckbox(
+              labelText: longLabel,
+              labelClassName: 'text-sm shrink-0',
+            ),
+          ),
+        );
+
+        // The caller asked for no shrinking, so the label stays on one line
+        // and overflows the 200 px box; the point is that the default
+        // `flex-initial` does not override it and nothing asserts on parent
+        // data.
+        final error = tester.takeException();
+        expect(error, isA<FlutterError>());
+        expect(error.toString(), contains('overflowed'));
+        expect(error.toString(), isNot(contains('ParentDataWidget')));
+      });
+
+      testWidgets('labelText lays out under unbounded width', (tester) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Form(child: WFormCheckbox(labelText: longLabel)),
+            ),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(find.text(longLabel), findsOneWidget);
+      });
+
+      testWidgets('a short labelText keeps its natural width', (tester) async {
+        await tester.pumpWidget(bounded(WFormCheckbox(labelText: 'Short')));
+
+        expect(tester.takeException(), isNull);
+        final rowRect = tester.getRect(find.byType(WAnchor).first);
+        final labelRect = tester.getRect(find.text('Short'));
+        expect(rowRect.right, labelRect.right);
+        expect(rowRect.width, lessThan(200));
+      });
+    });
+
     group('External Value Updates', () {
       testWidgets('syncs when parent updates value from false to true', (
         tester,

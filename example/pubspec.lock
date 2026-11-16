@@ -504,7 +504,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "1.12.1"
+    version: "1.12.2"
   wind_kit_diagnostics_contracts:
     dependency: transitive
     description:

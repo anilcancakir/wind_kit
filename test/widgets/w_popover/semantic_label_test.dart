@@ -90,7 +90,10 @@ void main() {
             ),
           );
 
-          expect(buttonNodes(tester), hasLength(1));
+          final List<SemanticsData> buttons = buttonNodes(tester);
+
+          expect(buttons, hasLength(1));
+          expect(buttons.single.label, 'Notifications\nOpen Menu');
         } finally {
           handle.dispose();
         }

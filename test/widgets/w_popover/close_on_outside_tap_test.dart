@@ -20,8 +20,10 @@ Widget popover({bool closeOnOutsideTap = true, PopoverController? controller}) {
     child: WPopover(
       controller: controller,
       closeOnOutsideTap: closeOnOutsideTap,
-      triggerBuilder: (context, isOpen, isHovering) =>
-          WDiv(className: 'w-10 h-10 bg-white', child: const Text('Trigger')),
+      triggerBuilder: (context, isOpen, isHovering) => WDiv(
+        className: 'w-10 h-10 bg-white dark:bg-gray-800',
+        child: const Text('Trigger'),
+      ),
       contentBuilder: (context, close) => SizedBox(
         height: 100,
         child: Column(

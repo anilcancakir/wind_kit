@@ -842,7 +842,7 @@ const WPopover({
   required PopoverContentBuilder contentBuilder,
   PopoverController? controller,         // external open/close control
   bool enableTriggerOnTap = true,        // tap on trigger toggles popover
-  String? semanticLabel,                 // names the trigger's button node (toggle branch only)
+  String? semanticLabel,                 // names the trigger's button node (needs enableTriggerOnTap)
   PopoverAlignment alignment = PopoverAlignment.bottomLeft,
   String? className,                     // overlay container styling
   Offset offset = const Offset(0, 4),    // trigger-to-popover gap
@@ -876,7 +876,7 @@ class PopoverController extends ChangeNotifier {
 
 Trigger interactivity: `enableTriggerOnTap` toggling is driven by a pointer-down `Listener`, not a tap `GestureDetector`, so it opens reliably even when `triggerBuilder` returns an interactive widget that owns its own `onTap` (a `WButton` or `WAnchor`). Both the trigger's `onTap` and the popover toggle fire on the same tap. The opening gesture cannot self-dismiss the popover (a one-shot first-frame guard absorbs the opening pointer-up); a genuine later outside tap still closes it.
 
-`semanticLabel` is the accessible name of an icon-only trigger (a bell, an avatar). It names the trigger's merged button node when `enableTriggerOnTap` is `true`, and that node reports `expanded` while the panel is open; with `enableTriggerOnTap: false` the popover adds no node, so label your own trigger and this value is ignored.
+`semanticLabel` is the accessible name of an icon-only trigger (a bell, an avatar). It names the trigger's merged button node when `enableTriggerOnTap` is `true` (read in front of any visible trigger text), and that node reports `expanded` while the panel is open; with `enableTriggerOnTap: false` the popover adds no node, so label your own trigger and this value is ignored.
 
 `closeOnOutsideTap: false` keeps the panel open on an outside tap (for a companion panel beside it); it still closes through the `PopoverController`, the trigger, Escape and the `close` callback of `contentBuilder`.
 

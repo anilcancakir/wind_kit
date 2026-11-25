@@ -92,7 +92,7 @@ const WPopover({
 | `width` | `double?` | `null` | Pins the overlay to a fixed width (like `WSelect`'s `menuWidth`). Overrides a `w-*` token in `className`. |
 | `maxWidth` | `double?` | `null` | Upper bound for the overlay width. Falls back to a `max-w-*` token, then to the screen width, so the overlay never stretches off-screen. Ignored when a fixed `width` (or `w-*`) is set. |
 | `enableTriggerOnTap` | `bool` | `true` | Whether tapping the trigger toggles the popover. |
-| `semanticLabel` | `String?` | `null` | Accessible name of the trigger, for a trigger with no visible text such as an icon-only bell or avatar. Applies only when `enableTriggerOnTap` is `true`; see [Event Handling](#event-handling). |
+| `semanticLabel` | `String?` | `null` | Accessible name of the trigger, for a trigger with no visible text such as an icon-only bell or avatar. It is read in front of any visible trigger text. Applies only when `enableTriggerOnTap` is `true`; see [Event Handling](#event-handling). |
 | `closeOnContentTap` | `bool` | `false` | Whether tapping inside the content closes the popover. |
 | `closeOnOutsideTap` | `bool` | `true` | Whether a tap outside the panel closes the popover. With `false` the panel stays open on an outside tap and still closes through the controller, the trigger, Escape and the `close` callback of `contentBuilder`. |
 | `disabled` | `bool` | `false` | When true, the trigger will not respond to interactions and is not a Tab stop. |
@@ -140,7 +140,7 @@ WPopover(
 )
 ```
 
-An icon-only trigger has no visible text to name it, so give `semanticLabel` the name a screen reader should announce. The label names the trigger's button node and applies only while `enableTriggerOnTap` is `true`. With `false` the popover adds no node of its own, so label your own trigger instead (a second `Semantics` here would duplicate the node of a `WButton` trigger). The same node reports `expanded`, which is `true` while the panel is open. The non-toggle branch is unchanged.
+An icon-only trigger has no visible text to name it, so give `semanticLabel` the name a screen reader should announce. The label names the trigger's button node and applies only while `enableTriggerOnTap` is `true`. A trigger that also shows text is announced as the label followed by that text, so keep the label short or leave it off when the text already names the control. With `false` the popover adds no node of its own, so label your own trigger instead, through `WButton(semanticLabel:)` or `WAnchor(semanticLabel:)` (a second `Semantics` here would duplicate the node of a `WButton` trigger). The same node reports `expanded`, which is `true` while the panel is open.
 
 ```dart
 WPopover(

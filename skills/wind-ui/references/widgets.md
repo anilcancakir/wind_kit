@@ -20,7 +20,7 @@ No sub-barrels.
 6. [Form (FormField): WFormInput, WFormSelect, WFormMultiSelect, WFormCheckbox, WFormDatePicker](#6-form-formfield-wforminput-wformselect-wformmultiselect-wformcheckbox-wformdatepicker)
 7. [Keyboard: WKeyboardActions](#7-keyboard-wkeyboardactions)
 8. [Animation: WindAnimationWrapper](#8-animation-windanimationwrapper)
-9. [Overlay: WPopover](#9-overlay-wpopover)
+9. [Overlay: WPopover, WTooltip](#9-overlay-wpopover-wtooltip)
 10. [Structural: WDynamic](#10-structural-wdynamic)
 11. [Composed: WBadge, WCard, WSwitch, WRadio, WTabs](#11-composed-wbadge-wcard-wswitch-wradio-wtabs)
 12. [Supporting types: SelectOption, DateRange, InputType, WDatePickerMode, PopoverAlignment, WindAnimationType](#12-supporting-types)
@@ -837,7 +837,7 @@ WindAnimationWrapper(
 
 ---
 
-## 9. Overlay: WPopover
+## 9. Overlay: WPopover, WTooltip
 
 OverlayPortal-based popover with controller + auto-flip + close-on-tap-outside.
 

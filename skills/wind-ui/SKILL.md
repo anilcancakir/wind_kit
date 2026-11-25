@@ -1,11 +1,11 @@
 ---
 name: wind-ui
 description: "Style Flutter UI with wind_kit: Tailwind-syntax className, W-widgets, dark: pairs, stacked prefixes, WindRecipe and WDynamic."
-version: 2.33.0
+version: 2.34.0
 when_to_use: "Use when writing, editing or auditing Flutter UI in an app that uses wind_kit: a className, W-widget, theme or overflow."
 ---
 
-<!-- wind_kit 1.12.x | Skill v2.33.0 (2026-11-15) -->
+<!-- wind_kit 1.12.x | Skill v2.34.0 (2026-11-26) -->
 
 # Wind UI
 
@@ -59,7 +59,7 @@ These hold for every line of Wind code. Apply each as a hard constraint, not a s
    );
    ```
 
-4. **Inside a Row (`flex flex-row`), prefer `flex-1` for a fill-the-row child.** A bare `w-full` on a direct Row child is now treated as `flex-1` (the row wraps it in `Expanded`), so it fills the available width instead of asserting `RenderBox was not laid out`; `flex-1` stays the idiomatic, explicit choice and is what to reach for. (A prefixed `md:w-full` is not auto-expanded; use `md:flex-1`.) Inside a Column (`flex flex-col`), scrollable children use `flex-1 overflow-y-auto` plus the constructor prop `scrollPrimary: true` for iOS tap-to-top. `h-full` on a child of a `WDiv` vertical scroll asserts in debug; under a plain `SingleChildScrollView` it silently takes the screen height. Use `flex-1` in a `flex flex-col`.
+4. **Inside a Row (`flex flex-row`), prefer `flex-1` for a fill-the-row child.** A bare `w-full` on a direct Row child is now treated as `flex-1` (the row wraps it in `Expanded`), so it fills the available width instead of asserting `RenderBox was not laid out`; `flex-1` stays the idiomatic, explicit choice and is what to reach for. (A prefixed `md:w-full` is not auto-expanded; use `md:flex-1`.) Inside a Column (`flex flex-col`), scrollable children use `flex-1 overflow-y-auto` plus the constructor prop `scrollPrimary: true` for iOS tap-to-top. `h-full` below a `WDiv` vertical scroll fills any bounded parent (an `h-40` box, a `SizedBox`, a `Positioned.fill` in a sized `Stack`); it reports an actionable error in debug only when its incoming height is unbounded (a direct child of the scroll, under a padding-only `WDiv`, or under a `flex flex-col`). Release builds drop the report and use the screen height, as does a plain `SingleChildScrollView`. The fix is `flex-1` on the body inside a `flex flex-col h-full` parent.
 
 5. **`child` XOR `children` on every W-widget that accepts both.** Passing both fails an assertion at construction. Passing neither renders an empty `SizedBox`.
 
@@ -75,11 +75,11 @@ These hold for every line of Wind code. Apply each as a hard constraint, not a s
 
 11. **An `onTap` on `WAnchor` is reachable by keyboard and remote, and a gestureless anchor is not a stop.** `onTap` runs on `ActivateIntent`, which covers `Enter`, `Space`, the gamepad A button and `select` (the D-pad centre on Android TV, the click on the Apple TV remote). Only an anchor that carries a gesture is a traversal stop: the gestureless `WAnchor` that `WDiv` wraps itself in for `hover:` / `focus:` inherits the nearest anchor's primary focus and `disabled` instead of claiming a second stop, so `WAnchor(onTap:) > WDiv('focus:ring-2')` is one control the user tabs to once and the ring lands on the thing they activate. An anchor with only `onLongPress` binds no activation key. Do not add `Focus` or `Shortcuts` wrappers: to drive focus from code pass `focusNode` (yours, never disposed by the anchor) or `autofocus`; the detail is in `${CLAUDE_SKILL_DIR}/references/widgets.md`.
 
-## 2. The 27 public widgets (+ WindRecipe) at a glance
+## 2. The 28 public widgets (+ WindRecipe) at a glance
 
-`wind_kit` v1 ships 27 public widgets plus the `WindRecipe` / `WindSlotRecipe` variant-composition primitives, all imported from the single barrel `package:wind_kit/wind_kit.dart`. No sub-barrels exist; do not write `import 'package:wind_kit/widgets.dart'`.
+`wind_kit` v1 ships 28 public widgets plus the `WindRecipe` / `WindSlotRecipe` variant-composition primitives, all imported from the single barrel `package:wind_kit/wind_kit.dart`. No sub-barrels exist; do not write `import 'package:wind_kit/widgets.dart'`.
 
-The headline 25 (table below) are the ones an agent reaches for daily. Two more cover narrow surfaces and live outside the table: `WKeyboardActions` (iOS keyboard toolbar overlay for `Done` / `Next` actions on a focused `TextField`) and `WindAnimationWrapper` (the internal stateful wrapper that drives looping `animate-*` tokens; consumers normally do not instantiate it directly).
+The headline 26 (table below) are the ones an agent reaches for daily. Two more cover narrow surfaces and live outside the table: `WKeyboardActions` (iOS keyboard toolbar overlay for `Done` / `Next` actions on a focused `TextField`) and `WindAnimationWrapper` (the internal stateful wrapper that drives looping `animate-*` tokens; consumers normally do not instantiate it directly).
 
 | Widget | Category | Required parameters | One-line purpose |
 |:---|:---|:---|:---|
@@ -211,7 +211,7 @@ A developer fluent in Tailwind v3 or v4 will default to assumptions Wind partial
 | `text-7xl` typo fails loudly | A token no parser recognises is dropped with a one-time `kDebugMode` hint (except the deliberate no-ops such as `transition` and `antialiased`); a recognised family with an unsupported value (like `text-7xl`, claimed by `text-*`) drops silently. Hand-check values. |
 | Spacing in rem | Logical pixels (4 px per unit; `p-4` = 16 px). Adjust via `WindThemeData.baseSpacingUnit`. |
 | `w-full` inside a Row works | A bare `w-full` row child is treated as `flex-1` (wrapped in `Expanded`) and fills the row; prefer `flex-1` for clarity. `md:w-full` is not auto-expanded. |
-| `h-full` inside a scrollable parent works | A child's `h-full` on a `WDiv` vertical scroll asserts in debug; under a plain `SingleChildScrollView` it silently takes the screen height. Use `flex-1` in a `flex flex-col`, `min-h-screen`, or a fixed-height container. |
+| `h-full` inside a scrollable parent works | `h-full` below a `WDiv` vertical scroll fills any bounded parent (`h-40`, `SizedBox`, `Positioned.fill`); it reports in debug only when the incoming height is unbounded (direct scroll child, padding-only `WDiv`, `flex flex-col`). Release builds and a plain `SingleChildScrollView` use the screen height. Use `flex-1` on the body inside a `flex flex-col h-full` parent, `min-h-screen`, or a fixed-height container. |
 | `overflow-y-auto` enables iOS tap-to-top | Add the constructor prop `scrollPrimary: true` as well. There is no className for it. |
 | `dark:` is optional | Every colour token needs a `dark:` peer in the same className (Core Law §2). |
 | `bg-opacity-50` (v3) | Removed in Wind. Use the v4-style `bg-red-500/50`. |
@@ -407,7 +407,7 @@ Compact catalogue of consistent footguns. Each entry: what's wrong, why, the cor
 | `className: 'flex-wrap'` | Works (aliased to `wrap`), but `wrap` is the canonical token and avoids the debug hint | `'wrap gap-2'` |
 | `className: 'text-7xl'` | Font scale stops at 6xl; silent no-op | `'text-6xl'` (cap), `'text-[72px]'` for a larger size, or a `7xl` key in `WindThemeData.fontSizes` |
 | `className: 'w-full'` inside a Row (works, but `flex-1` is clearer) | No failure, just intent clarity | `'flex-1'` |
-| `className: 'h-full'` inside a scrollable | Asserts in a WDiv scroll; takes the screen height elsewhere | `'flex-1 overflow-y-auto'` + `scrollPrimary: true` on the constructor |
+| `className: 'h-full'` inside a scrollable | Fills any bounded parent; reports in debug only when the incoming height is unbounded, else uses the screen height | `'flex-1 overflow-y-auto'` + `scrollPrimary: true` on the constructor |
 | `className: 'overflow-y-auto'` without `scrollPrimary: true` | iOS tap-to-top broken | add the constructor prop |
 | `className: 'bg-white'` alone | Missing dark pair = bug | `'bg-white dark:bg-gray-800'` |
 | `className: '${isOn ? "bg-blue-500" : "bg-gray-100"}'` | Breaks parser cache; defeats prefix system | `states: isOn ? {'active'} : const {}` + static className with `active:bg-blue-500` |

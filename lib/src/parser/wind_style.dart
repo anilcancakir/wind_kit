@@ -116,6 +116,14 @@ class WindStyle {
   /// Number of grid columns for grid display type e.g., grid-cols-3
   final int? gridCols;
 
+  /// Sentinel for `col-span-full`. Far above any real column count, so the
+  /// grid's `1..cols` clamp turns it into a span of every column.
+  static const int gridColSpanFull = 1 << 30;
+
+  /// Columns a grid child spans e.g., col-span-2; [gridColSpanFull] for
+  /// `col-span-full`. Stored unclamped: the grid owns the `1..cols` clamp.
+  final int? gridColSpan;
+
   /// Child order for flex reordering e.g., order-1, order-first, order-[5].
   /// Children without an `order-*` class default to `0` during stable sort.
   final int? order;
@@ -299,6 +307,7 @@ class WindStyle {
     this.alignment,
     this.textBaseline,
     this.gridCols,
+    this.gridColSpan,
     this.order,
     this.flexReverse = false,
     this.color,
@@ -374,6 +383,7 @@ class WindStyle {
     Alignment? alignment,
     TextBaseline? textBaseline,
     int? gridCols,
+    int? gridColSpan,
     int? order,
     bool? flexReverse,
     Color? color,
@@ -466,6 +476,7 @@ class WindStyle {
       alignment: alignment ?? this.alignment,
       textBaseline: textBaseline ?? this.textBaseline,
       gridCols: gridCols ?? this.gridCols,
+      gridColSpan: gridColSpan ?? this.gridColSpan,
       order: order ?? this.order,
       flexReverse: flexReverse ?? this.flexReverse,
       color: color ?? this.color,
@@ -547,6 +558,7 @@ class WindStyle {
           alignment == other.alignment &&
           textBaseline == other.textBaseline &&
           gridCols == other.gridCols &&
+          gridColSpan == other.gridColSpan &&
           order == other.order &&
           flexReverse == other.flexReverse &&
           color == other.color &&
@@ -622,6 +634,7 @@ class WindStyle {
       alignment.hashCode ^
       textBaseline.hashCode ^
       gridCols.hashCode ^
+      gridColSpan.hashCode ^
       order.hashCode ^
       flexReverse.hashCode ^
       color.hashCode ^
@@ -800,6 +813,7 @@ class WindStyle {
         'alignment: $alignment, '
         'textBaseline: $textBaseline, '
         'gridCols: $gridCols, '
+        'gridColSpan: $gridColSpan, '
         'order: $order, '
         'flexReverse: $flexReverse, '
         'color: $color, '

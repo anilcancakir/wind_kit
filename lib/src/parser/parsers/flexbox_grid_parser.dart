@@ -23,7 +23,7 @@ import 'wind_parser_interface.dart';
 /// - **Flex Sizing:** `shrink`, `shrink-0`, `flex-shrink`
 /// - **Align Self:** `align-self-start`, `align-self-end`, `align-self-center`, `align-self-stretch`, `align-self-auto`
 ///   plus the Tailwind shorthand `self-start`, `self-end`, `self-center`, `self-stretch`, `self-auto`
-/// - **Grid:** `grid-cols-*` (numeric values only)
+/// - **Grid:** `grid-cols-*` (numeric values only), `col-span-N`, `col-span-full`
 /// - **Axis Size:** `axis-min`, `axis-max` (Custom Wind utilities)
 ///
 /// ### Prefixes:
@@ -75,6 +75,11 @@ class FlexboxGridParser implements WindParserInterface {
 
   /// Matches theme-based grid-cols classes (e.g., `grid-cols-3`)
   static final RegExp _gridColsRegex = RegExp(r'^grid-cols-(?<value>[0-9]+)$');
+
+  /// Matches grid column span classes (e.g., `col-span-2`, `col-span-full`)
+  static final RegExp _gridColSpanRegex = RegExp(
+    r'^col-span-(?<value>[0-9]+|full)$',
+  );
 
   /// Matches fractional / full flex-basis classes (e.g., `basis-1/2`,
   /// `basis-1/3`, `basis-full`). The value is the MAIN-axis basis factor.
@@ -219,6 +224,7 @@ class FlexboxGridParser implements WindParserInterface {
     Alignment? alignment;
     TextBaseline? textBaseline;
     int? gridCols;
+    int? gridColSpan;
     bool? isHidden;
     // Track if visibility has been determined by a later class
     bool visibilitySet = false;
@@ -355,6 +361,16 @@ class FlexboxGridParser implements WindParserInterface {
           gridCols = int.tryParse(match.namedGroup('value')!);
         } else {}
       }
+      // `col-span-2`, `col-span-full`; the grid clamps the value to 1..cols.
+      if (gridColSpan == null) {
+        final match = _gridColSpanRegex.firstMatch(className);
+        if (match != null) {
+          final value = match.namedGroup('value')!;
+          gridColSpan = value == 'full'
+              ? WindStyle.gridColSpanFull
+              : int.tryParse(value);
+        }
+      }
       // `basis-1/2`, `basis-full` (fractional) and `basis-[120px]` (fixed).
       // Arbitrary precedes the theme/fraction form per the parser convention.
       if (basisFactor == null && basisSize == null) {
@@ -399,6 +415,7 @@ class FlexboxGridParser implements WindParserInterface {
         alignment != null ||
         textBaseline != null ||
         gridCols != null ||
+        gridColSpan != null ||
         isHidden != null;
 
     if (!didChange) {
@@ -423,6 +440,7 @@ class FlexboxGridParser implements WindParserInterface {
       alignment: alignment,
       textBaseline: textBaseline,
       gridCols: gridCols,
+      gridColSpan: gridColSpan,
       isHidden: isHidden,
     );
   }
@@ -443,6 +461,7 @@ class FlexboxGridParser implements WindParserInterface {
         className.startsWith('basis-') ||
         className.startsWith('flex-') ||
         className.startsWith('grid-') ||
+        className.startsWith('col-span-') ||
         className.startsWith('justify-') ||
         className.startsWith('items-') ||
         className.startsWith('align-') ||

@@ -58,6 +58,37 @@ void main() {
         expect(styles.gridCols, 3);
       });
 
+      test('parses col-span-N into gridColSpan (#328)', () {
+        final styles = parser.parse(WindStyle(), ['col-span-2'], context);
+        expect(styles.gridColSpan, 2);
+      });
+
+      test('parses col-span-full into the full-row sentinel (#328)', () {
+        final styles = parser.parse(WindStyle(), ['col-span-full'], context);
+        expect(styles.gridColSpan, WindStyle.gridColSpanFull);
+      });
+
+      test('the last col-span class wins (#328)', () {
+        final styles = parser.parse(WindStyle(), [
+          'col-span-2',
+          'col-span-3',
+        ], context);
+        expect(styles.gridColSpan, 3);
+      });
+
+      test(
+        'parses col-span-0 as 0 and leaves the clamp to the widget (#328)',
+        () {
+          final styles = parser.parse(WindStyle(), ['col-span-0'], context);
+          expect(styles.gridColSpan, 0);
+        },
+      );
+
+      test('leaves gridColSpan null without a col-span class (#328)', () {
+        final styles = parser.parse(WindStyle(), ['grid-cols-3'], context);
+        expect(styles.gridColSpan, isNull);
+      });
+
       test('parses gap-x and gap-y classes', () {
         final styles = parser.parse(WindStyle(), [
           'gap-x-4',
@@ -311,6 +342,12 @@ void main() {
       test('returns true for grid related classes', () {
         expect(parser.canParse('grid'), isTrue);
         expect(parser.canParse('grid-cols-3'), isTrue);
+      });
+
+      test('claims col-span classes but not col-resize (#328)', () {
+        expect(parser.canParse('col-span-2'), isTrue);
+        expect(parser.canParse('col-span-full'), isTrue);
+        expect(parser.canParse('col-resize'), isFalse);
       });
 
       test('returns false for unrelated classes', () {

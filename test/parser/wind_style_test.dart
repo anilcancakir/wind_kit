@@ -59,6 +59,24 @@ void main() {
       expect(updated.toString(), contains('mouseCursor'));
     });
 
+    test('gridColSpan takes part in equality and hashCode (#328)', () {
+      const a = WindStyle(gridColSpan: 2);
+      const b = WindStyle(gridColSpan: 2);
+      const c = WindStyle(gridColSpan: 3);
+
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a == c, isFalse);
+    });
+
+    test('copyWith carries gridColSpan through to toString (#328)', () {
+      final updated = const WindStyle().copyWith(gridColSpan: 4);
+
+      expect(updated.gridColSpan, 4);
+      expect(const WindStyle(gridColSpan: 4).copyWith().gridColSpan, 4);
+      expect(updated.toString(), contains('gridColSpan: 4'));
+    });
+
     test('a differing letterSpacingUnit breaks equality', () {
       const px = WindStyle(letterSpacing: 1);
       const em = WindStyle(

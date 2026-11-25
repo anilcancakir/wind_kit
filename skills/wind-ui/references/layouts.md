@@ -112,6 +112,8 @@ WDiv(
 
 Note: Wind's `grid` renders as `Wrap` with computed column widths; it is not virtualised. For large or dynamic item counts, use Flutter's `GridView.builder` with W-widgets inside. Add `items-stretch` for equal-height rows (cells match the tallest per row via a real-layout equal-height row, not `IntrinsicHeight`, so cells containing a `flex flex-col`, `h-full`, or `basis-*` stretch without the intrinsic-sizing assert; #139).
 
+A grid child spans columns with `col-span-N` or `col-span-full` (prefixes such as `md:col-span-2` work): its width is N columns plus the N-1 gaps between them, capped at the column count, and `col-span-0` counts as one column. Rows pack in order and a child that does not fit the remaining columns starts the next row (no backfilling). Both the `Wrap` and the `items-stretch` grid honour spans. Only a child with a `className` (`WDiv`, `WText`, `WButton`) can span; wrap a plain `Text` or `SizedBox` in a `WDiv`. Spans are ignored under `overflow-x-auto` or `overflow-x-scroll`, and `row-span-*` is not supported.
+
 ### Sticky header + scrollable body
 
 ```dart

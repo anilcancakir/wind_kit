@@ -110,7 +110,7 @@ Precedence: inline `backgroundColor` wins over any `bg-*` / `dark:bg-*` resolved
 
 - **Block (Default)**: Standard vertical stack or single child wrapper. If `children` is used without `flex` or `grid`, it defaults to a `Column`.
 - **Flex**: Enabled via `flex`. Supports `flex-row`, `flex-col`, `gap-*`, `items-*`, `justify-*`. It mimics CSS Flexbox behaviour, including automatic `Flexible` wrapping for row children so they can shrink. That wrap is skipped when a child claims a grow share (`flex-1`, `grow`, `flex-auto`, a bare `w-full`, or a raw `Expanded`/`Flexible`), so the growing child keeps the free space and its siblings stay at their content width. See [Flexbox](../layout/flexbox.md#flex-grow--shrink).
-- **Grid**: Enabled via `grid`. Uses a combination of `Wrap` and `LayoutBuilder` to achieve Tailwind-like grid behaviour (`grid-cols-*`) with intrinsic item heights.
+- **Grid**: Enabled via `grid`. Uses a combination of `Wrap` and `LayoutBuilder` to achieve Tailwind-like grid behaviour (`grid-cols-*`) with intrinsic item heights. A child can span columns with `col-span-N` or `col-span-full`. See [Grid](../layout/grid.md#column-span).
 - **Wrap**: Enabled via `wrap`. Elements wrap to the next line when space is insufficient, similar to `flex-wrap` in CSS.
 - **Hidden**: Enabled via `hidden`. The widget short-circuits to `SizedBox.shrink()` to save resources.
 
@@ -203,7 +203,7 @@ WDiv(className: 'w-full md:w-1/2 lg:w-1/3')
 |:---------|:--------|
 | **Display** | `block`, `flex`, `grid`, `wrap`, `hidden` |
 | **Flexbox** | `flex-row`, `flex-col`, `justify-*`, `items-*`, `gap-*`, `flex-1`, `flex-2`, etc. |
-| **Grid** | `grid-cols-*`, `gap-x-*`, `gap-y-*` |
+| **Grid** | `grid-cols-*`, `col-span-*`, `col-span-full`, `gap-x-*`, `gap-y-*` |
 | **Sizing** | `w-*`, `h-*`, `min-w-*`, `max-w-*`, `aspect-*` |
 | **Spacing** | `p-*`, `px-*`, `py-*`, `m-*`, `mx-*`, `my-*`, `space-x-*`, `space-y-*` |
 | **Background** | `bg-*`, `bg-gradient-*` |

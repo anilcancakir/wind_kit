@@ -273,7 +273,7 @@ bg-opacity-N           → bg-{color}-{shade}/N (slash modifier)
 
 **Step 3: re-express conditional styling via `states:`.** Where the original Tailwind used `group-hover:` or `peer-focus:` or imperative DOM class flips, route through `states: Set<String>?` plus prefixed classes.
 
-**Step 4: verify layout assumptions.** `w-full` inside a Row becomes `flex-1`. `h-full` fills any bounded parent and reports in debug only when its incoming height is unbounded (use `flex-1` there). `absolute` needs a `relative` parent. `truncate` needs a bounded width (wrap in `flex-1 min-w-0`).
+**Step 4: verify layout assumptions.** `w-full` inside a Row becomes `flex-1`. `h-full` fills any bounded parent and, below a `WDiv` vertical scroll, reports in debug only when its incoming height is unbounded (use `flex-1` there). `absolute` needs a `relative` parent. `truncate` needs a bounded width (wrap in `flex-1 min-w-0`).
 
 **Step 5: add `scrollPrimary: true`** to the outermost scrollable on every page.
 

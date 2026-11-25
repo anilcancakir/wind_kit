@@ -184,4 +184,143 @@ void main() {
       expect(warnings.any((w) => w.contains('budget')), isTrue);
     });
   });
+
+  group('expandAliases opacity modifier', () {
+    bool isColorClass(String bareClass) => bareClass.startsWith('bg-');
+
+    test('appends the opacity to a one-colour alias (#324)', () {
+      expect(
+        expandAliases('bg-brand/50', const {
+          'bg-brand': 'bg-red-500',
+        }, isColorClass: isColorClass),
+        'bg-red-500/50',
+      );
+    });
+
+    test('appends the opacity to the dark peer of the expansion (#324)', () {
+      expect(
+        expandAliases('bg-surface/50', const {
+          'bg-surface': 'bg-white dark:bg-gray-900',
+        }, isColorClass: isColorClass),
+        'bg-white/50 dark:bg-gray-900/50',
+      );
+    });
+
+    test('keeps a state prefix on each token that receives the opacity '
+        '(#324)', () {
+      expect(
+        expandAliases('hover:bg-surface/50', const {
+          'bg-surface': 'bg-white dark:bg-gray-900',
+        }, isColorClass: isColorClass),
+        'hover:bg-white/50 hover:dark:bg-gray-900/50',
+      );
+    });
+
+    test('appends the opacity only to the colour classes of a mixed alias '
+        '(#324)', () {
+      expect(
+        expandAliases('chip/50', const {
+          'chip': 'px-4 bg-blue-500',
+        }, isColorClass: isColorClass),
+        'px-4 bg-blue-500/50',
+      );
+    });
+
+    test('replaces an inner opacity with the outer one (#324)', () {
+      expect(
+        expandAliases('bg-brand/50', const {
+          'bg-brand': 'bg-red-500/30',
+        }, isColorClass: isColorClass),
+        'bg-red-500/50',
+      );
+    });
+
+    test('passes the opacity down through a nested alias (#324)', () {
+      const aliases = {'card': 'p-4 bg-brand/20', 'bg-brand': 'bg-red-500'};
+
+      expect(
+        expandAliases('card/50', aliases, isColorClass: isColorClass),
+        'p-4 bg-red-500/50',
+      );
+      expect(
+        expandAliases('card', aliases, isColorClass: isColorClass),
+        'p-4 bg-red-500/20',
+      );
+    });
+
+    test('prefers an exact key that contains a slash (#324)', () {
+      expect(
+        expandAliases('bg-brand/50', const {
+          'bg-brand/50': 'bg-green-500',
+          'bg-brand': 'bg-red-500',
+        }, isColorClass: isColorClass),
+        'bg-green-500',
+      );
+    });
+
+    test('leaves an unknown alias with an opacity verbatim (#324)', () {
+      expect(
+        expandAliases('bg-nope/50', const {
+          'bg-brand': 'bg-red-500',
+        }, isColorClass: isColorClass),
+        'bg-nope/50',
+      );
+    });
+
+    test('leaves an alias with an opacity verbatim without a predicate '
+        '(#324)', () {
+      expect(
+        expandAliases('bg-brand/50', const {'bg-brand': 'bg-red-500'}),
+        'bg-brand/50',
+      );
+    });
+
+    test('carries an arbitrary bracket opacity (#324)', () {
+      expect(
+        expandAliases('bg-brand/[0.5]', const {
+          'bg-brand': 'bg-red-500/30',
+        }, isColorClass: isColorClass),
+        'bg-red-500/[0.5]',
+      );
+    });
+
+    test('leaves a token whose suffix is not an opacity verbatim (#324)', () {
+      expect(
+        expandAliases('bg-brand/abc', const {
+          'bg-brand': 'bg-red-500',
+        }, isColorClass: isColorClass),
+        'bg-brand/abc',
+      );
+    });
+
+    test('expands a colourless alias, drops the opacity and warns (#324)', () {
+      final warnings = <String>[];
+
+      final result = expandAliases(
+        'row/50',
+        const {'row': 'flex flex-row'},
+        onWarn: warnings.add,
+        isColorClass: isColorClass,
+      );
+
+      expect(result, 'flex flex-row');
+      expect(warnings, hasLength(1));
+      expect(warnings.single, contains("'row'"));
+      expect(warnings.single, contains("'/50'"));
+    });
+
+    test('terminates on a cycle reached through an opacity token (#324)', () {
+      final warnings = <String>[];
+
+      final result = expandAliases(
+        'a/50',
+        const {'a': 'a'},
+        onWarn: warnings.add,
+        isColorClass: isColorClass,
+      );
+
+      expect(result, 'a');
+      expect(warnings.any((w) => w.contains('cycle')), isTrue);
+    });
+  });
 }

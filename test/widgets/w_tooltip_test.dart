@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:wind_kit/wind_kit.dart';
@@ -93,6 +94,75 @@ Rect _boxRect(WidgetTester tester) {
   );
 }
 
+/// Two focusable buttons under an ancestor that records every Escape key-down
+/// it receives; the first button carries the tooltip, unless [secondMessage]
+/// wraps the second one too.
+Widget _focusTooltip({
+  required FocusNode first,
+  required FocusNode next,
+  required List<KeyEvent> ancestorEscapes,
+  String message = _message,
+  String? secondMessage,
+}) {
+  final Widget nextButton = TextButton(
+    focusNode: next,
+    onPressed: () {},
+    child: const Text('Next'),
+  );
+
+  return Focus(
+    canRequestFocus: false,
+    skipTraversal: true,
+    onKeyEvent: (FocusNode node, KeyEvent event) {
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.escape) {
+        ancestorEscapes.add(event);
+      }
+      return KeyEventResult.ignored;
+    },
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        WTooltip(
+          message: message,
+          child: TextButton(
+            key: _triggerKey,
+            focusNode: first,
+            onPressed: () {},
+            child: const Text('First'),
+          ),
+        ),
+        if (secondMessage == null)
+          nextButton
+        else
+          WTooltip(message: secondMessage, child: nextButton),
+      ],
+    ),
+  );
+}
+
+/// A focus node disposed when the test ends.
+FocusNode _node(String label) {
+  final FocusNode node = FocusNode(debugLabel: label);
+  addTearDown(node.dispose);
+  return node;
+}
+
+/// Pins the highlight strategy for one test and restores it afterwards.
+void _highlight(FocusHighlightStrategy strategy) {
+  final FocusHighlightStrategy previous =
+      FocusManager.instance.highlightStrategy;
+  FocusManager.instance.highlightStrategy = strategy;
+  addTearDown(() => FocusManager.instance.highlightStrategy = previous);
+}
+
+/// Presses Escape, then waits past the fade-out.
+Future<void> _escape(WidgetTester tester) async {
+  await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 200));
+}
+
 /// Sizes the view to [size] at a pixel ratio of 1, so overlay and view
 /// coordinates are the same logical pixels.
 void _sizeView(WidgetTester tester, Size size) {
@@ -155,6 +225,213 @@ void main() {
           expect(find.text(_message), findsNothing);
         },
       );
+    });
+
+    group('Keyboard', () {
+      testWidgets('shows on Tab focus at once and hides on Tab away (#323)', (
+        tester,
+      ) async {
+        final FocusNode first = _node('first');
+        final FocusNode next = _node('next');
+        await tester.pumpWidget(
+          wrapWithTheme(
+            _focusTooltip(first: first, next: next, ancestorEscapes: []),
+          ),
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(first.hasPrimaryFocus, isTrue);
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(find.text(_message), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(next.hasPrimaryFocus, isTrue);
+        expect(find.text(_message), findsNothing);
+      });
+
+      testWidgets('ignores a focus in touch highlight mode (#323)', (
+        tester,
+      ) async {
+        _highlight(FocusHighlightStrategy.alwaysTouch);
+        final FocusNode first = _node('first');
+        final FocusNode next = _node('next');
+        await tester.pumpWidget(
+          wrapWithTheme(
+            _focusTooltip(first: first, next: next, ancestorEscapes: []),
+          ),
+        );
+
+        first.requestFocus();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+
+        expect(first.hasPrimaryFocus, isTrue);
+        expect(find.text(_message), findsNothing);
+      });
+
+      testWidgets('keeps the next focused tooltip on Tab between two (#323)', (
+        tester,
+      ) async {
+        _highlight(FocusHighlightStrategy.alwaysTraditional);
+        final FocusNode first = _node('first');
+        final FocusNode next = _node('next');
+        await tester.pumpWidget(
+          wrapWithTheme(
+            _focusTooltip(
+              first: first,
+              next: next,
+              ancestorEscapes: [],
+              secondMessage: 'Discard',
+            ),
+          ),
+        );
+
+        first.requestFocus();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(find.text(_message), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+
+        expect(next.hasPrimaryFocus, isTrue);
+        expect(find.text(_message), findsNothing);
+        expect(find.text('Discard'), findsOneWidget);
+      });
+
+      testWidgets('hides a hover-shown tooltip on Escape (#323)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(wrapWithTheme(_tooltip()));
+        await _showByHover(tester);
+        expect(find.text(_message), findsOneWidget);
+
+        await _escape(tester);
+
+        expect(find.text(_message), findsNothing);
+      });
+
+      testWidgets(
+        'hides a focus-shown tooltip on Escape, then passes Escape on (#323)',
+        (tester) async {
+          final FocusNode first = _node('first');
+          final FocusNode next = _node('next');
+          final List<KeyEvent> escapes = [];
+          await tester.pumpWidget(
+            wrapWithTheme(
+              _focusTooltip(first: first, next: next, ancestorEscapes: escapes),
+            ),
+          );
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+          expect(find.text(_message), findsOneWidget);
+
+          await _escape(tester);
+          expect(find.text(_message), findsNothing);
+          expect(escapes, isEmpty);
+
+          await _escape(tester);
+          expect(escapes, hasLength(1));
+          expect(first.hasPrimaryFocus, isTrue);
+        },
+      );
+
+      testWidgets('passes Escape on while no tooltip was shown (#323)', (
+        tester,
+      ) async {
+        final FocusNode first = _node('first');
+        final FocusNode next = _node('next');
+        final List<KeyEvent> escapes = [];
+        await tester.pumpWidget(
+          wrapWithTheme(
+            _focusTooltip(first: first, next: next, ancestorEscapes: escapes),
+          ),
+        );
+        next.requestFocus();
+        await tester.pump();
+
+        await _escape(tester);
+
+        expect(find.text(_message), findsNothing);
+        expect(escapes, hasLength(1));
+      });
+
+      testWidgets('keeps focus off the tooltip while it shows (#323)', (
+        tester,
+      ) async {
+        final FocusNode first = _node('first');
+        final FocusNode next = _node('next');
+        await tester.pumpWidget(
+          wrapWithTheme(
+            _focusTooltip(first: first, next: next, ancestorEscapes: []),
+          ),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(find.text(_message), findsOneWidget);
+
+        expect(FocusManager.instance.primaryFocus, same(first));
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(FocusManager.instance.primaryFocus, same(next));
+      });
+
+      testWidgets('shows nothing on Tab focus for an empty message (#323)', (
+        tester,
+      ) async {
+        final FocusNode first = _node('first');
+        final FocusNode next = _node('next');
+        final List<KeyEvent> escapes = [];
+        await tester.pumpWidget(
+          wrapWithTheme(
+            _focusTooltip(
+              first: first,
+              next: next,
+              ancestorEscapes: escapes,
+              message: '',
+            ),
+          ),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(first.hasPrimaryFocus, isTrue);
+        expect(find.byType(WText), findsNothing);
+
+        await _escape(tester);
+
+        expect(escapes, hasLength(1));
+      });
+
+      testWidgets('replaces a shown tooltip without throwing (#323)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(wrapWithTheme(_tooltip()));
+        await _showByHover(tester);
+        expect(find.text(_message), findsOneWidget);
+
+        await tester.pumpWidget(
+          wrapWithTheme(
+            WTooltip(
+              key: const Key('replacement'),
+              message: 'Other',
+              child: const SizedBox(width: 40, height: 40),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 200));
+        await _escape(tester);
+
+        expect(tester.takeException(), isNull);
+        expect(find.text(_message), findsNothing);
+      });
     });
 
     group('Semantics', () {

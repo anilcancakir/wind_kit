@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'w_div.dart';
@@ -26,7 +29,7 @@ import 'w_text.dart';
 ///   ),
 /// )
 /// ```
-class WTooltip extends StatelessWidget {
+class WTooltip extends StatefulWidget {
   /// The text shown in the tooltip and announced as the child's semantics
   /// tooltip. Empty disables the tooltip.
   final String message;
@@ -48,13 +51,6 @@ class WTooltip extends StatelessWidget {
   /// How long a mouse pointer must hover the [child] before the tooltip shows.
   final Duration hoverDelay;
 
-  static const String _defaultClassName =
-      'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 '
-      'text-xs px-2 py-1 rounded-md';
-
-  /// Gap kept between the box and the overlay edge when it must be clamped.
-  static const double _margin = 8;
-
   const WTooltip({
     super.key,
     required this.message,
@@ -66,15 +62,67 @@ class WTooltip extends StatelessWidget {
   });
 
   @override
+  State<WTooltip> createState() => _WTooltipState();
+}
+
+class _WTooltipState extends State<WTooltip> {
+  static const String _defaultClassName =
+      'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 '
+      'text-xs px-2 py-1 rounded-md';
+
+  /// Gap kept between the box and the overlay edge when it must be clamped.
+  static const double _margin = 8;
+
+  final GlobalKey<RawTooltipState> _tooltipKey = GlobalKey<RawTooltipState>();
+
+  /// Whether the current focus showed the tooltip, so a blur hides only what
+  /// a focus opened and never a tooltip the pointer is holding open.
+  bool _shownByFocus = false;
+
+  @override
   Widget build(BuildContext context) {
     return RawTooltip(
-      semanticsTooltip: message,
-      hoverDelay: hoverDelay,
+      key: _tooltipKey,
+      semanticsTooltip: widget.message,
+      hoverDelay: widget.hoverDelay,
       triggerMode: TooltipTriggerMode.longPress,
       positionDelegate: _position,
       tooltipBuilder: _buildTooltip,
-      child: child,
+      child: Focus(
+        canRequestFocus: false,
+        skipTraversal: true,
+        includeSemantics: false,
+        onFocusChange: _onFocusChange,
+        child: widget.child,
+      ),
     );
+  }
+
+  /// Shows the tooltip at once when the keyboard moves focus into the child
+  /// and hides it again on blur. Fires on every focus notification, so the
+  /// flag, not [hasFocus], decides whether anything changes.
+  void _onFocusChange(bool hasFocus) {
+    if (!hasFocus) {
+      if (_shownByFocus) {
+        _shownByFocus = false;
+        RawTooltip.dismissAllToolTips();
+      }
+      return;
+    }
+    if (widget.message.isEmpty ||
+        FocusManager.instance.highlightMode != FocusHighlightMode.traditional) {
+      return;
+    }
+    // The newly focused path is notified before the old one, so showing now
+    // would let the previous tooltip's blur dismiss this one as well.
+    scheduleMicrotask(() {
+      if (!mounted) {
+        return;
+      }
+      if (_tooltipKey.currentState?.ensureTooltipVisible() ?? false) {
+        _shownByFocus = true;
+      }
+    });
   }
 
   /// Places the box on the requested side of the [child], then lets the public
@@ -84,12 +132,13 @@ class WTooltip extends StatelessWidget {
     final Size triggerSize = context.targetSize;
     final Size tooltipSize = context.tooltipSize;
     final Size overlaySize = context.overlaySize;
+    final Offset offset = widget.offset;
     final Offset trigger =
         context.target - Offset(triggerSize.width / 2, triggerSize.height / 2);
 
     // 2. Flip to the side with room, then correct what the flip cannot.
     final PopoverAlignment effective = computeEffectiveAlignment(
-      requested: alignment,
+      requested: widget.alignment,
       triggerPosition: trigger,
       triggerSize: triggerSize,
       popoverSize: tooltipSize,
@@ -142,12 +191,52 @@ class WTooltip extends StatelessWidget {
   }
 
   Widget _buildTooltip(BuildContext context, Animation<double> animation) {
-    return FadeTransition(
-      opacity: animation,
-      child: WDiv(
-        className: className ?? _defaultClassName,
-        child: WText(message),
+    return _EscapeDismissal(
+      child: FadeTransition(
+        opacity: animation,
+        child: WDiv(
+          className: widget.className ?? _defaultClassName,
+          child: WText(widget.message),
+        ),
       ),
     );
   }
+}
+
+/// Dismisses every open tooltip on Escape for as long as it is mounted. It
+/// sits in the overlay child, which exists only while a tooltip shows, so
+/// Escape is left alone otherwise and reaches the app's own shortcuts.
+class _EscapeDismissal extends StatefulWidget {
+  final Widget child;
+
+  const _EscapeDismissal({required this.child});
+
+  @override
+  State<_EscapeDismissal> createState() => _EscapeDismissalState();
+}
+
+class _EscapeDismissalState extends State<_EscapeDismissal> {
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_handleKeyEvent);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
+    super.dispose();
+  }
+
+  bool _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.escape) {
+      return false;
+    }
+
+    return RawTooltip.dismissAllToolTips();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

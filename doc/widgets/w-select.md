@@ -209,7 +209,7 @@ A select is fully operable from the keyboard, so keyboard and TV (D-pad) users c
 
 | Key | Menu closed (trigger focused) | Menu open | Menu open with `searchable: true` |
 |:----|:------------------------------|:----------|:----------------------------------|
-| `Enter`, `NumpadEnter` | Opens the menu | Selects the highlighted option | Same |
+| `Enter`, `NumpadEnter`, D-pad centre (`select`), `gameButtonA` | Opens the menu | Selects the highlighted option | Same |
 | `Space` | Opens the menu | Selects the highlighted option | Typed into the search field |
 | `ArrowDown` | Opens the menu | Highlights the next enabled option | Same |
 | `ArrowUp` | Not handled | Highlights the previous enabled option | Same |

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -419,6 +421,98 @@ void main() {
       expect(menu.contains(last.topLeft), isTrue);
       expect(menu.contains(last.bottomRight), isTrue);
     });
+
+    testWidgets('scrolls a selected option far down into view on open (#322)', (
+      tester,
+    ) async {
+      final Map<String, bool> seen = {};
+      final List<SelectOption<String>> many = List.generate(
+        60,
+        (int i) => SelectOption(value: 'o$i', label: 'Option $i'),
+      );
+      await tester.pumpWidget(
+        wrapWithTheme(
+          _select(seen: seen, options: many, value: 'o40', maxMenuHeight: 200),
+        ),
+      );
+
+      await _focusTrigger(tester);
+      await _press(tester, LogicalKeyboardKey.enter);
+
+      final Rect menu = tester.getRect(
+        find
+            .ancestor(
+              of: find.text('Option 40').last,
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      final Rect row = tester.getRect(find.text('Option 40').last);
+      expect(_highlighted(seen), contains('Option 40'));
+      expect(menu.contains(row.topLeft), isTrue);
+      expect(menu.contains(row.bottomRight), isTrue);
+    });
+
+    testWidgets('opens on the D-pad select key (#322)', (tester) async {
+      final Map<String, bool> seen = {};
+      await tester.pumpWidget(wrapWithTheme(_select(seen: seen)));
+
+      await _focusTrigger(tester);
+      await _press(tester, LogicalKeyboardKey.select);
+
+      expect(find.text('Cherry'), findsOneWidget);
+    });
+
+    testWidgets('selects the highlighted option on NumpadEnter (#322)', (
+      tester,
+    ) async {
+      final Map<String, bool> seen = {};
+      String? chosen;
+      await tester.pumpWidget(
+        wrapWithTheme(_select(seen: seen, onChange: (v) => chosen = v)),
+      );
+
+      await _tapOpen(tester);
+      await _press(tester, LogicalKeyboardKey.arrowDown);
+      await _press(tester, LogicalKeyboardKey.numpadEnter);
+
+      expect(chosen, 'apple');
+    });
+
+    testWidgets('keeps moving the highlight on a held arrow key (#322)', (
+      tester,
+    ) async {
+      final Map<String, bool> seen = {};
+      await tester.pumpWidget(wrapWithTheme(_select(seen: seen)));
+
+      await _tapOpen(tester);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+
+      expect(_highlighted(seen), ['Cherry']);
+    });
+
+    testWidgets(
+      'keeps the highlight on its option when options change (#322)',
+      (tester) async {
+        final Map<String, bool> seen = {};
+        await tester.pumpWidget(wrapWithTheme(_select(seen: seen)));
+
+        await _tapOpen(tester);
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        expect(_highlighted(seen), ['Cherry']);
+
+        await tester.pumpWidget(
+          wrapWithTheme(_select(seen: seen, options: [..._options])),
+        );
+        await tester.pumpAndSettle();
+
+        expect(_highlighted(seen), ['Cherry']);
+      },
+    );
   });
 
   group('WSelect searchable keyboard', () {
@@ -541,5 +635,41 @@ void main() {
 
       expect(_highlighted(seen), isEmpty);
     });
+
+    testWidgets(
+      'ignores the arrows and Enter while a search is pending (#322)',
+      (tester) async {
+        final Map<String, bool> seen = {};
+        final Completer<List<SelectOption<String>>> pending =
+            Completer<List<SelectOption<String>>>();
+        String? chosen;
+        await tester.pumpWidget(
+          wrapWithTheme(
+            WSelect<String>(
+              options: _options,
+              searchable: true,
+              onChange: (v) => chosen = v,
+              onSearch: (_) => pending.future,
+              itemBuilder: _recording(seen),
+            ),
+          ),
+        );
+
+        await _tapOpen(tester);
+        await tester.enterText(find.byType(EditableText), 'a');
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+
+        expect(chosen, isNull);
+
+        pending.complete(_options);
+        await tester.pumpAndSettle();
+
+        expect(_highlighted(seen), isEmpty);
+      },
+    );
   });
 }

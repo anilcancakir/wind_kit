@@ -372,6 +372,13 @@ class _WSelectState<T> extends State<WSelect<T>> {
   void didUpdateWidget(WSelect<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.options != oldWidget.options) {
+      // A parent that builds `options` inline hands over a new list on every
+      // rebuild, including the one a multi-select toggle triggers, so the
+      // highlight follows its option into the new list instead of resetting.
+      final SelectOption<T>? highlighted =
+          _hoveredIndex >= 0 && _hoveredIndex < _filteredOptions.length
+          ? _filteredOptions[_hoveredIndex]
+          : null;
       _filteredOptions = widget.options;
       // The other place the list is replaced wholesale, and the epoch covers
       // it for the same reason it covers the open: a page or a search captured
@@ -387,7 +394,11 @@ class _WSelectState<T> extends State<WSelect<T>> {
       // one. The open branch lowers it for the same reason.
       _listEpoch++;
       _isSearching = false;
-      _hoveredIndex = -1;
+      _hoveredIndex = highlighted == null
+          ? -1
+          : widget.options.indexWhere(
+              (SelectOption<T> option) => option.value == highlighted.value,
+            );
       if (_searchQuery.isNotEmpty) {
         _filterOptions(_searchQuery);
       }
@@ -481,7 +492,11 @@ class _WSelectState<T> extends State<WSelect<T>> {
         _searchQuery = '';
         _filteredOptions = widget.options;
         _hoveredIndex = keyboard ? _initialHighlight() : -1;
-        _revealPending = false;
+        // A selected option far down a long list opens off screen otherwise.
+        _revealIndex = _hoveredIndex;
+        _revealDownward = true;
+        _revealContext = null;
+        _revealPending = _hoveredIndex >= 0;
         // The query and the list are back to their defaults, so the search
         // that was in flight against the old query no longer owns this menu.
         // Leaving the flag set stranded the reopened menu on a spinner:
@@ -496,7 +511,15 @@ class _WSelectState<T> extends State<WSelect<T>> {
         // on the frame it opened (a one-frame suppress guard is not enough).
         // The shared groupId still stops a trigger re-tap from self-closing.
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && _isOpen) _overlayController.show();
+          if (!mounted || !_isOpen) return;
+          _overlayController.show();
+          // The overlay builds on the frame after `show`, so the reveal waits
+          // for that one.
+          if (_revealPending) {
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => _revealHighlight(),
+            );
+          }
         });
       } else {
         _overlayController.hide();
@@ -572,8 +595,21 @@ class _WSelectState<T> extends State<WSelect<T>> {
     return -1;
   }
 
+  /// Enter and the D-pad centre or gamepad A key of a TV remote, the keys the
+  /// framework's own `ActivateIntent` binds besides Space.
+  bool _isActivateKey(LogicalKeyboardKey key) =>
+      key == LogicalKeyboardKey.enter ||
+      key == LogicalKeyboardKey.numpadEnter ||
+      key == LogicalKeyboardKey.select ||
+      key == LogicalKeyboardKey.gameButtonA;
+
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     if (widget.disabled) return KeyEventResult.ignored;
+    // This `Focus` also sits above a custom trigger's own focusable (a text
+    // field, say), whose Space and Enter belong to it.
+    if (node == _focusNode && !node.hasPrimaryFocus) {
+      return KeyEventResult.ignored;
+    }
 
     final LogicalKeyboardKey key = event.logicalKey;
     final bool isArrow =
@@ -588,8 +624,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
 
   KeyEventResult _onClosedKey(LogicalKeyboardKey key) {
     final bool opens =
-        key == LogicalKeyboardKey.enter ||
-        key == LogicalKeyboardKey.numpadEnter ||
+        _isActivateKey(key) ||
         key == LogicalKeyboardKey.space ||
         key == LogicalKeyboardKey.arrowDown;
     if (!opens) return KeyEventResult.ignored;
@@ -601,9 +636,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
 
   KeyEventResult _onOpenKey(LogicalKeyboardKey key) {
     if (key == LogicalKeyboardKey.arrowDown) {
-      _moveHighlight(
-        _enabledIndexFrom(_hoveredIndex < 0 ? -1 : _hoveredIndex, 1),
-      );
+      _moveHighlight(_enabledIndexFrom(_hoveredIndex, 1));
     } else if (key == LogicalKeyboardKey.arrowUp) {
       _moveHighlight(
         _enabledIndexFrom(
@@ -613,8 +646,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
       );
     } else if (key == LogicalKeyboardKey.escape) {
       _closeMenu(restoreFocus: true);
-    } else if (key == LogicalKeyboardKey.enter ||
-        key == LogicalKeyboardKey.numpadEnter) {
+    } else if (_isActivateKey(key)) {
       _selectHighlighted();
     } else if (widget.searchable) {
       // Space types a space and Home/End move the caret in the search field.
@@ -633,7 +665,11 @@ class _WSelectState<T> extends State<WSelect<T>> {
   }
 
   void _selectHighlighted() {
-    if (_hoveredIndex < 0 || _hoveredIndex >= _filteredOptions.length) return;
+    if (_isSearching ||
+        _hoveredIndex < 0 ||
+        _hoveredIndex >= _filteredOptions.length) {
+      return;
+    }
 
     _selectOption(_filteredOptions[_hoveredIndex], restoreFocus: true);
   }
@@ -642,7 +678,9 @@ class _WSelectState<T> extends State<WSelect<T>> {
   /// enabled option in that direction) leaves the highlight where it is, so it
   /// stops at the ends rather than wrapping.
   void _moveHighlight(int index) {
-    if (index == -1 || index == _hoveredIndex) return;
+    // While a search is in flight the spinner hides rows that still sit in
+    // `_filteredOptions`, and a key must not land on one of them.
+    if (_isSearching || index == -1 || index == _hoveredIndex) return;
 
     setState(() {
       _revealDownward = index > _hoveredIndex;
@@ -1337,11 +1375,15 @@ class _WSelectState<T> extends State<WSelect<T>> {
           isHovered,
           index,
         );
-        if (!_revealPending || index != _revealIndex) return row;
 
+        // Every row gets the same wrapper, so the one being revealed keeps its
+        // element (and any state its `itemBuilder` row holds) as the highlight
+        // moves on.
         return Builder(
           builder: (BuildContext rowContext) {
-            _revealContext = rowContext;
+            if (_revealPending && index == _revealIndex) {
+              _revealContext = rowContext;
+            }
 
             return row;
           },

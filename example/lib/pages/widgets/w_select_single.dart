@@ -97,7 +97,7 @@ class _WSelectSingleExamplePageState extends State<WSelectSingleExamplePage> {
         ),
         ExampleSection(
           title: 'Right Edge',
-          description: 'A narrow trigger at the end of the row with a w-64 menu. The menu shifts left to stay inside the window.',
+          description: 'A narrow trigger at the end of the row with a w-64 menu. The menu shifts left to stay inside the window; narrow the window to see it.',
           child: Align(
             alignment: Alignment.centerRight,
             child: WSelect<String>(

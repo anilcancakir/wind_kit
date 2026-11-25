@@ -210,6 +210,14 @@ class WPopover extends StatefulWidget {
   /// `WDiv`) or a null/empty `onTap` for a pure popover trigger.
   final bool enableTriggerOnTap;
 
+  /// Accessible name of the trigger, for a trigger with no visible text such
+  /// as an icon-only bell or avatar.
+  ///
+  /// Names the trigger's button node when [enableTriggerOnTap] is `true`. With
+  /// `false` the popover adds no node of its own, so the caller labels its own
+  /// trigger and this value is ignored.
+  final String? semanticLabel;
+
   /// Where to position the popover relative to the trigger.
   ///
   /// Default: [PopoverAlignment.bottomLeft]
@@ -287,6 +295,7 @@ class WPopover extends StatefulWidget {
     required this.contentBuilder,
     this.controller,
     this.enableTriggerOnTap = true,
+    this.semanticLabel,
     this.alignment = PopoverAlignment.bottomLeft,
     this.className,
     this.offset = const Offset(0, 4),
@@ -888,6 +897,8 @@ class _WPopoverState extends State<WPopover> {
         child: Semantics(
           button: true,
           enabled: !widget.disabled,
+          label: widget.semanticLabel,
+          expanded: _isOpen,
           onTap: widget.disabled ? null : toggle,
           child: Listener(
             onPointerDown: (event) {

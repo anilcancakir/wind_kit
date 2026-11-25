@@ -8,6 +8,7 @@ A utility-first text component that translates Tailwind-like class strings into 
 - [Runtime-Dynamic Colors](#runtime-dynamic-colors)
 - [Typography Styling](#typography-styling)
 - [State Variants](#state-variants)
+- [Accessibility](#accessibility)
 - [Styling Examples](#styling-examples)
 - [All Supported Classes](#all-supported-classes)
 - [Customizing Theme](#customizing-theme)
@@ -47,6 +48,7 @@ const WText(
   bool selectable = false,
   Set<String>? states,
   Color? foregroundColor,
+  String? semanticsLabel,
 })
 ```
 
@@ -62,6 +64,7 @@ const WText(
 | `selectable` | `bool` | `false` | Whether the text should be selectable (renders `SelectableText`). |
 | `states` | `Set<String>?` | `null` | Custom states for dynamic styling (e.g., 'loading'). |
 | `foregroundColor` | `Color?` | `null` | Inline text colour for runtime-dynamic values. Overrides any `text-*` / `dark:text-*` from `className`. See [Runtime-Dynamic Colors](#runtime-dynamic-colors). |
+| `semanticsLabel` | `String?` | `null` | Spoken by a screen reader in place of the visible text, like Flutter's `Text.semanticsLabel`. Also applies with `selectable: true`. A hidden `WText` publishes nothing. |
 
 <a name="runtime-dynamic-colors"></a>
 ## Runtime-Dynamic Colors
@@ -124,6 +127,21 @@ WAnchor(
   ),
 )
 ```
+
+<a name="accessibility"></a>
+## Accessibility
+
+`semanticsLabel` is spoken by a screen reader in place of the visible text, for a value that reads badly aloud. It is forwarded to both `Text` and `SelectableText`, so it also works with `selectable: true`, and a `hidden` `WText` publishes nothing.
+
+```dart
+WText(
+  '99.9%',
+  semanticsLabel: 'Uptime: ninety-nine point nine percent',
+  className: 'text-sm text-slate-700 dark:text-slate-200',
+)
+```
+
+The prop is `semanticsLabel` here, as on Flutter's `Text`, while [WDiv](./w-div.md#accessibility) takes `semanticLabel`.
 
 <a name="styling-examples"></a>
 ## Styling Examples

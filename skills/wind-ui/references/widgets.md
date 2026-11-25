@@ -58,6 +58,8 @@ const WDiv({
   Set<String>? states,
   bool scrollPrimary = false,        // pass true alongside `overflow-y-auto` for iOS tap-to-top
   Color? backgroundColor,           // runtime escape hatch; bypasses className
+  String? semanticLabel,            // spoken for the whole box, replaces descendant semantics, no button role
+  bool excludeSemantics = false,    // drops descendants from semantics; not with semanticLabel
 })
 ```
 
@@ -127,6 +129,7 @@ const WText(
     bool selectable = false,
     Set<String>? states,
     Color? foregroundColor,           // runtime escape hatch
+    String? semanticsLabel,           // spoken in place of the visible text
   },
 )
 ```

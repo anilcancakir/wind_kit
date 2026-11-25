@@ -127,6 +127,24 @@ class WDivBasicExamplePage extends StatelessWidget {
             ],
           ),
         ),
+        ExampleSection(
+          title: 'Semantic Label',
+          description: 'semanticLabel is spoken for the whole container and adds no button role. Descendant semantics are replaced.',
+          child: WDiv(
+            className: '''
+              flex flex-row items-center gap-1 px-2 rounded-full
+              bg-green-100 dark:bg-green-900
+            ''',
+            semanticLabel: 'Status: operational',
+            children: [
+              WDiv(className: 'size-2 rounded-full bg-green-500'),
+              WText(
+                'Up',
+                className: 'text-sm text-green-800 dark:text-green-100',
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

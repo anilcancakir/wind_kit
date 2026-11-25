@@ -10,6 +10,7 @@ It embodies the "Intelligent Composition" philosophy, dynamically constructing t
 - [Runtime-Dynamic Colors](#runtime-dynamic-colors)
 - [Layout Modes](#layout-modes)
 - [Event Handling](#event-handling)
+- [Accessibility](#accessibility)
 - [State Variants](#state-variants)
 - [Styling Examples](#styling-examples)
 - [All Supported Classes](#all-supported-classes)
@@ -64,6 +65,8 @@ const WDiv({
   Set<String>? states,
   bool scrollPrimary = false,
   Color? backgroundColor,
+  String? semanticLabel,
+  bool excludeSemantics = false,
 })
 ```
 
@@ -79,6 +82,8 @@ const WDiv({
 | `states` | `Set<String>?` | `null` | Custom states to activate prefix classes (e.g., `loading:bg-blue-500`). |
 | `scrollPrimary` | `bool` | `false` | Whether this is the primary scroll view for iOS tap-to-top and desktop scrollbar integration. |
 | `backgroundColor` | `Color?` | `null` | Inline background colour for runtime-dynamic values. Overrides any `bg-*` / `dark:bg-*` from `className`. See [Runtime-Dynamic Colors](#runtime-dynamic-colors). |
+| `semanticLabel` | `String?` | `null` | The text a screen reader speaks for this container instead of what its descendants announce. Publishes one node with no button role. Cannot be combined with `excludeSemantics`. See [Accessibility](#accessibility). |
+| `excludeSemantics` | `bool` | `false` | Drops the descendants from the semantics tree and announces nothing, for purely decorative content. Cannot be combined with `semanticLabel`. See [Accessibility](#accessibility). |
 
 <a name="runtime-dynamic-colors"></a>
 ## Runtime-Dynamic Colors
@@ -119,6 +124,30 @@ That wrap is styling only: the auto-wrapped `WAnchor` carries no gesture, so it 
 It is not a keyboard or remote stop either. Inside a tappable `WAnchor` the wrapper inherits that anchor's `focus` and `disabled` rather than claiming a stop of its own, so the control is reached once and the ring is drawn on the element the user activates. Standing alone, with no anchor above it, a `WDiv` carrying `focus:` keeps its own focus node and stays reachable; one whose only state classes are `hover:` or `active:` has no focus node and is never a stop, since it has nothing to show when focused. `hover` is never inherited, so sibling divs inside one anchor still highlight independently. See [WAnchor](./w-anchor.md#keyboard-and-remote-control).
 
 For direct gesture support (taps, long presses) or to create semantic buttons, use [WAnchor](w-anchor.md) or [WButton](w-button.md).
+
+<a name="accessibility"></a>
+## Accessibility
+
+`semanticLabel` makes a screen reader speak your text for the whole container, with no `Semantics` wrapper at the call site. It suits a status pill or a value whose visible text reads badly aloud.
+
+```dart
+WDiv(
+  className: 'flex flex-row items-center gap-1 px-2 rounded-full bg-green-100 dark:bg-green-900',
+  semanticLabel: 'Status: operational',
+  children: [
+    WDiv(className: 'size-2 rounded-full bg-green-500'),
+    WText('Up', className: 'text-sm text-green-800 dark:text-green-100'),
+  ],
+)
+```
+
+The label publishes one node and adds no `button` role, unlike `WAnchor.semanticLabel`, so a display-only pill is not announced as a control. That holds with `hover:` and `focus:` classes too: the auto-wrapped `WAnchor` still yields one labelled node, and a `focus:` class adds an unlabelled focusable node from the anchor.
+
+The label replaces the semantics of every descendant. An interactive child inside a labelled `WDiv` (a `WButton`, a `WAnchor`, a `WInput`) is hidden from assistive technology, so label only containers whose content is display-only.
+
+`excludeSemantics: true` on its own drops the descendants and announces nothing, for a decorative box. Setting it together with `semanticLabel` fails a constructor assertion. A `hidden` `WDiv` publishes nothing either way.
+
+The prop is `semanticLabel` here, as on `WAnchor` and `WButton`, while [WText](./w-text.md#props) takes `semanticsLabel`, as Flutter's `Text` does.
 
 <a name="state-variants"></a>
 ## State Variants

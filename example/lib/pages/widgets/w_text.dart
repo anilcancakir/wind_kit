@@ -127,6 +127,15 @@ class WTextExamplePage extends StatelessWidget {
             ],
           ),
         ),
+        ExampleSection(
+          title: 'Semantics Label',
+          description: 'semanticsLabel is spoken by a screen reader in place of the visible text.',
+          child: const WText(
+            '99.9%',
+            semanticsLabel: 'Uptime: ninety-nine point nine percent',
+            className: 'text-sm text-slate-700 dark:text-slate-200',
+          ),
+        ),
       ],
     );
   }

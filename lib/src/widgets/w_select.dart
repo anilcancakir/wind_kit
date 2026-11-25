@@ -10,6 +10,7 @@ import '../utils/wind_perf_counters.dart';
 import 'select_option.dart';
 import 'w_div.dart';
 import 'w_input.dart';
+import 'w_popover.dart';
 import 'w_text.dart';
 
 /// Signature for building a custom trigger widget for [WSelect].
@@ -182,7 +183,11 @@ class WSelect<T> extends StatefulWidget {
   /// - **Visuals:** `bg-white`, `border`, `border-gray-300`
   /// - **States:** `hover:border-blue-500`, `focus:ring-2`
   ///
-  /// Example: `'w-full p-2 bg-white border rounded shadow-sm'`
+  /// Without a className the trigger is `bg-white dark:bg-gray-800` with a
+  /// gray 300 (dark: gray 600) border. A custom className replaces that
+  /// default, so give each colour class its `dark:` peer.
+  ///
+  /// Example: `'w-full p-2 bg-white dark:bg-gray-800 border rounded shadow-sm'`
   final String? className;
 
   /// Tailwind-like utility classes for the dropdown menu container.
@@ -192,9 +197,13 @@ class WSelect<T> extends StatefulWidget {
   /// Supports:
   /// - **Box Model:** `rounded-lg`, `border`
   /// - **Shadow:** `shadow-xl`, `shadow-gray-200`
-  /// - **Background:** `bg-white` (Recommended)
+  /// - **Background:** `bg-white dark:bg-gray-800` (Recommended)
   ///
-  /// Example: `'bg-white border border-gray-100 shadow-lg rounded-xl'`
+  /// A menu with no background class gets the default surface (white, gray 800
+  /// in dark mode); with no decoration at all it also gets the default border
+  /// (gray 200, dark gray 700) and shadow. Any background class you give wins.
+  ///
+  /// Example: `'bg-white dark:bg-gray-800 border border-gray-100 shadow-lg rounded-xl'`
   final String? menuClassName;
 
   /// Placeholder text shown when no value is selected.
@@ -302,6 +311,10 @@ class _WSelectState<T> extends State<WSelect<T>> {
   /// partial `primary` `MaterialColor` without that shade, so a custom theme
   /// can never crash the icon lookup (the `.shadeN` getters would throw).
   Color _primaryShade(int shade) => _primaryColor[shade] ?? _primaryColor;
+
+  /// Picks [light] or [dark] for a raw colour that cannot take a `dark:` class.
+  Color _paired({required Color light, required Color dark}) =>
+      context.windIsDark ? dark : light;
 
   /// Shared [TapRegion] group for the trigger and the open menu, so re-tapping
   /// the trigger toggles it closed (the tap is inside the group) rather than
@@ -749,7 +762,12 @@ class _WSelectState<T> extends State<WSelect<T>> {
     };
 
     final String triggerClassName =
-        widget.className ?? 'bg-white border border-gray-300 rounded-lg p-3';
+        widget.className ??
+        '''
+          bg-white dark:bg-gray-800
+          border border-gray-300 dark:border-gray-600
+          rounded-lg p-3
+        ''';
 
     // Logger integration
     final styles = WindParser.parse(
@@ -809,7 +827,10 @@ class _WSelectState<T> extends State<WSelect<T>> {
                           ? Icons.keyboard_arrow_up
                           : Icons.keyboard_arrow_down,
                       size: 20,
-                      color: Colors.grey.shade600,
+                      color: _paired(
+                        light: Colors.grey.shade600,
+                        dark: Colors.grey.shade400,
+                      ),
                     ),
                   ],
                 ),
@@ -859,12 +880,61 @@ class _WSelectState<T> extends State<WSelect<T>> {
 
   Widget _buildDefaultChip(SelectOption<T> option) {
     return WDiv(
-      className: 'flex items-center gap-1 bg-primary-100 rounded px-2 py-0.5',
+      className: '''
+        flex items-center gap-1 bg-primary-100 dark:bg-primary-900/40
+        rounded px-2 py-0.5
+      ''',
       children: [
-        WText(option.label, className: 'text-primary-800 text-sm'),
+        WText(
+          option.label,
+          className: 'text-primary-800 dark:text-primary-200 text-sm',
+        ),
         GestureDetector(
           onTap: () => _removeValue(option.value),
-          child: Icon(Icons.close, size: 14, color: _primaryShade(700)),
+          child: Icon(
+            Icons.close,
+            size: 14,
+            color: _paired(light: _primaryShade(700), dark: _primaryShade(300)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The menu surface for the active brightness. Parsed rather than hard-coded
+  /// so the light colour stays the theme's white and the dark one its gray 800.
+  Color get _menuSurface =>
+      WindParser.parse('bg-white dark:bg-gray-800', context).decoration!.color!;
+
+  /// The decoration of the open menu.
+  ///
+  /// A user [parsed] decoration with a background (colour or gradient) wins
+  /// untouched. One without (radius or shadow only) gets the default surface,
+  /// and none at all gets the full default box.
+  BoxDecoration _menuDecoration(
+    BoxDecoration? parsed,
+    BorderRadius borderRadius,
+  ) {
+    if (parsed != null) {
+      return parsed.color == null && parsed.gradient == null
+          ? parsed.copyWith(color: _menuSurface)
+          : parsed;
+    }
+
+    return BoxDecoration(
+      color: _menuSurface,
+      border: Border.all(
+        color: _paired(
+          light: Colors.grey.shade200,
+          dark: context.windColors['gray']?[700] ?? Colors.grey.shade700,
+        ),
+      ),
+      borderRadius: borderRadius,
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: context.windIsDark ? 0.4 : 0.1),
+          blurRadius: 8,
+          offset: const Offset(0, 4),
         ),
       ],
     );
@@ -899,11 +969,28 @@ class _WSelectState<T> extends State<WSelect<T>> {
       logger.printFinalCode();
     }
 
+    // The follower is anchored to the trigger's left edge, so a menu wider than
+    // the room to the right of the trigger would run off the window. The same
+    // clamp WPopover applies pulls it back 8px inside the edge.
+    final Offset baseOffset = Offset(0, _openUpward ? -4 : 4);
+    final double dx = triggerBox != null && triggerBox.hasSize
+        ? computeHorizontalClamp(
+            alignment: _openUpward
+                ? PopoverAlignment.topLeft
+                : PopoverAlignment.bottomLeft,
+            triggerPosition: triggerBox.localToGlobal(Offset.zero),
+            triggerSize: triggerBox.size,
+            popoverWidth: menuWidth,
+            screenSize: MediaQuery.sizeOf(context),
+            offset: baseOffset,
+          )
+        : 0;
+
     return CompositedTransformFollower(
       link: _layerLink,
       targetAnchor: _openUpward ? Alignment.topLeft : Alignment.bottomLeft,
       followerAnchor: _openUpward ? Alignment.bottomLeft : Alignment.topLeft,
-      offset: Offset(0, _openUpward ? -4 : 4),
+      offset: Offset(dx, baseOffset.dy),
       child: Align(
         alignment: _openUpward ? Alignment.bottomLeft : Alignment.topLeft,
         widthFactor: 1,
@@ -917,20 +1004,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
             child: Container(
               width: menuWidth,
               constraints: BoxConstraints(maxHeight: maxHeight),
-              decoration:
-                  menuStyles.decoration ??
-                  BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: Colors.grey.shade200),
-                    borderRadius: borderRadius,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
+              decoration: _menuDecoration(menuStyles.decoration, borderRadius),
               child: ClipRRect(
                 borderRadius: borderRadius,
                 child: WDiv(
@@ -954,7 +1028,8 @@ class _WSelectState<T> extends State<WSelect<T>> {
       child: WInput(
         placeholder: widget.searchPlaceholder,
         autofocus: true,
-        className: 'p-2 border border-gray-300 rounded text-sm',
+        className:
+            'p-2 border border-gray-300 dark:border-gray-600 rounded text-sm',
         onChanged: _filterOptions,
       ),
     );
@@ -996,7 +1071,10 @@ class _WSelectState<T> extends State<WSelect<T>> {
   Widget _buildEmptyState() {
     return WDiv(
       className: 'p-4',
-      child: WText('No options found', className: 'text-gray-500'),
+      child: WText(
+        'No options found',
+        className: 'text-gray-500 dark:text-gray-400',
+      ),
     );
   }
 
@@ -1108,7 +1186,15 @@ class _WSelectState<T> extends State<WSelect<T>> {
                 Icon(
                   isSelected ? Icons.check_box : Icons.check_box_outline_blank,
                   size: 18,
-                  color: isSelected ? _primaryShade(600) : Colors.grey.shade400,
+                  color: isSelected
+                      ? _paired(
+                          light: _primaryShade(600),
+                          dark: _primaryShade(400),
+                        )
+                      : _paired(
+                          light: Colors.grey.shade400,
+                          dark: Colors.grey.shade600,
+                        ),
                 ),
               if (option.icon != null) option.icon!,
               WDiv(
@@ -1116,7 +1202,14 @@ class _WSelectState<T> extends State<WSelect<T>> {
                 child: WText(option.label, className: textColorClass),
               ),
               if (!widget.isMulti && isSelected)
-                Icon(Icons.check, size: 18, color: _primaryShade(600)),
+                Icon(
+                  Icons.check,
+                  size: 18,
+                  color: _paired(
+                    light: _primaryShade(600),
+                    dark: _primaryShade(400),
+                  ),
+                ),
             ],
           ),
         ),

@@ -351,13 +351,27 @@ class _WSelectState<T> extends State<WSelect<T>> {
 
   /// Whether a keyboard move still has to scroll its row into view.
   ///
-  /// While raised, the row at [_revealIndex] is wrapped in a [Builder] that
-  /// hands its context to [_revealContext], which is how the post-frame
-  /// reveal finds the row's render object without a key per row.
+  /// While raised, every row the list builds hands its context to
+  /// [_revealRows] from the [Builder] that wraps it, which is how the
+  /// post-frame reveal finds the target's render object without a key per row,
+  /// and which rows are built when the target is not one of them.
   bool _revealPending = false;
   bool _revealDownward = true;
   int _revealIndex = -1;
-  BuildContext? _revealContext;
+
+  /// The contexts of the rows built since the reveal was requested, by index.
+  final Map<int, BuildContext> _revealRows = {};
+
+  /// Whether the reveal spent its one proportional jump.
+  bool _revealJumped = false;
+
+  /// The direction the reveal steps in once it walks the list a viewport at a
+  /// time: 1 down, -1 up, 0 before the first step.
+  int _revealStep = 0;
+
+  /// Whether a reveal attempt is already queued for the next frame, so two
+  /// key presses inside one frame do not run two walks side by side.
+  bool _revealScheduled = false;
 
   @override
   void initState() {
@@ -394,15 +408,24 @@ class _WSelectState<T> extends State<WSelect<T>> {
       // one. The open branch lowers it for the same reason.
       _listEpoch++;
       _isSearching = false;
-      _hoveredIndex = highlighted == null
-          ? -1
-          : widget.options.indexWhere(
-              (SelectOption<T> option) => option.value == highlighted.value,
-            );
-      if (_searchQuery.isNotEmpty) {
-        _filterOptions(_searchQuery);
+      // The query did not change, so a re-filter carries the highlight over to
+      // the filtered list rather than resetting it the way typing does.
+      if (_searchQuery.isEmpty) {
+        _hoveredIndex = _indexOfOption(_filteredOptions, highlighted);
+      } else {
+        _filterOptions(_searchQuery, highlighted: highlighted);
       }
     }
+  }
+
+  /// The index of the option sharing [option]'s value in [options], or -1 when
+  /// [option] is null or absent.
+  int _indexOfOption(List<SelectOption<T>> options, SelectOption<T>? option) {
+    if (option == null) return -1;
+
+    return options.indexWhere(
+      (SelectOption<T> candidate) => candidate.value == option.value,
+    );
   }
 
   @override
@@ -493,10 +516,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
         _filteredOptions = widget.options;
         _hoveredIndex = keyboard ? _initialHighlight() : -1;
         // A selected option far down a long list opens off screen otherwise.
-        _revealIndex = _hoveredIndex;
-        _revealDownward = true;
-        _revealContext = null;
-        _revealPending = _hoveredIndex >= 0;
+        _requestReveal(_hoveredIndex, downward: true);
         // The query and the list are back to their defaults, so the search
         // that was in flight against the old query no longer owns this menu.
         // Leaving the flag set stranded the reopened menu on a spinner:
@@ -515,11 +535,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
           _overlayController.show();
           // The overlay builds on the frame after `show`, so the reveal waits
           // for that one.
-          if (_revealPending) {
-            WidgetsBinding.instance.addPostFrameCallback(
-              (_) => _revealHighlight(),
-            );
-          }
+          if (_revealPending) _scheduleReveal();
         });
       } else {
         _overlayController.hide();
@@ -683,25 +699,67 @@ class _WSelectState<T> extends State<WSelect<T>> {
     if (_isSearching || index == -1 || index == _hoveredIndex) return;
 
     setState(() {
-      _revealDownward = index > _hoveredIndex;
+      final bool downward = index > _hoveredIndex;
       _hoveredIndex = index;
-      _revealIndex = index;
-      _revealContext = null;
-      _revealPending = true;
+      _requestReveal(index, downward: downward);
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _revealHighlight());
+    _scheduleReveal();
+  }
+
+  /// Starts a reveal of the row at [index] (none for -1). Called inside a
+  /// `setState`, so the rebuild it triggers has every live row report itself.
+  void _requestReveal(int index, {required bool downward}) {
+    _revealIndex = index;
+    _revealDownward = downward;
+    _revealPending = index >= 0;
+    _revealJumped = false;
+    _revealStep = 0;
+    _revealRows.clear();
+  }
+
+  void _endReveal() {
+    _revealPending = false;
+    _revealRows.clear();
+  }
+
+  /// Queues one reveal attempt for after the next frame, once per frame.
+  void _scheduleReveal() {
+    if (_revealScheduled) return;
+
+    _revealScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _revealScheduled = false;
+      _revealHighlight();
+    });
   }
 
   /// Scrolls the highlighted row into view once the frame that built it ran.
   ///
-  /// A row the list has not built yet has no context to reveal, so the list
-  /// jumps to a proportional offset to get it built and the reveal runs once
-  /// more on the next frame.
-  void _revealHighlight({bool retry = true}) {
+  /// A row the list has not built yet has no context to reveal. The first miss
+  /// jumps to a proportional offset, which lands on or near the row when rows
+  /// share a height; every later miss scrolls one viewport toward the row and
+  /// tries again on the next frame. The built rows say which way the row lies,
+  /// so variable-height rows only cost more steps. The walk ends once the row
+  /// is revealed, once the target is gone (menu closed, highlight moved, list
+  /// shortened), or once a step cannot move the list or would turn back, so it
+  /// is bounded by real scroll progress rather than a retry count.
+  void _revealHighlight() {
     if (!mounted || !_revealPending) return;
 
-    final BuildContext? row = _revealContext;
-    if (row != null && row.mounted) {
+    // 1. The request outlived its target.
+    if (!_isOpen ||
+        _revealIndex != _hoveredIndex ||
+        _revealIndex >= _filteredOptions.length ||
+        !_scrollController.hasClients) {
+      _endReveal();
+
+      return;
+    }
+
+    // 2. The row is built, so it can be revealed exactly.
+    _revealRows.removeWhere((_, BuildContext row) => !row.mounted);
+    final BuildContext? row = _revealRows[_revealIndex];
+    if (row != null) {
       Scrollable.ensureVisible(
         row,
         duration: Duration.zero,
@@ -709,31 +767,66 @@ class _WSelectState<T> extends State<WSelect<T>> {
             ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd
             : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
       );
-      _revealPending = false;
-      _revealContext = null;
+      _endReveal();
 
       return;
     }
 
-    final int count = _filteredOptions.length;
-    if (!retry || count < 2 || !_scrollController.hasClients) {
-      _revealPending = false;
-
-      return;
-    }
-
+    // 3. Move the list toward the row and look again on the next frame.
     final ScrollPosition position = _scrollController.position;
-    final double fraction = _revealIndex / (count - 1);
-    _scrollController.jumpTo(
-      (position.maxScrollExtent * fraction).clamp(
-        position.minScrollExtent,
-        position.maxScrollExtent,
-      ),
-    );
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _revealHighlight(retry: false),
-    );
+    double? next = _revealJumped ? null : _proportionalRevealOffset(position);
+    _revealJumped = true;
+    if (next == null || next == position.pixels) {
+      next = _stepRevealOffset(position);
+    }
+    if (next == null || next == position.pixels) {
+      _endReveal();
+
+      return;
+    }
+
+    _scrollController.jumpTo(next);
+    _scheduleReveal();
     WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  /// The offset the target would sit at if every row shared one height.
+  double? _proportionalRevealOffset(ScrollPosition position) {
+    final int count = _filteredOptions.length;
+    if (count < 2) return null;
+
+    return (position.maxScrollExtent * _revealIndex / (count - 1)).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+  }
+
+  /// One viewport toward the target, judged from the rows that are built, or
+  /// null when no built row says which way it lies or the walk would turn
+  /// back on itself (the list moved under it).
+  double? _stepRevealOffset(ScrollPosition position) {
+    if (_revealRows.isEmpty) return null;
+
+    int first = _revealRows.keys.first;
+    int last = first;
+    for (final int index in _revealRows.keys) {
+      if (index < first) first = index;
+      if (index > last) last = index;
+    }
+
+    final int step = _revealIndex > last
+        ? 1
+        : _revealIndex < first
+        ? -1
+        : 0;
+    if (step == 0 || (_revealStep != 0 && step != _revealStep)) return null;
+
+    _revealStep = step;
+
+    return (position.pixels + step * position.viewportDimension).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
   }
 
   void _toggleMultiSelection(SelectOption<T> option) {
@@ -792,7 +885,15 @@ class _WSelectState<T> extends State<WSelect<T>> {
     }
   }
 
-  Future<void> _filterOptions(String query) async {
+  /// Filters the visible list by [query].
+  ///
+  /// A typed query starts the highlight over. [highlighted] is the option a
+  /// re-filter under the unchanged query keeps highlighted, found by value in
+  /// the new list (none when it dropped out of it).
+  Future<void> _filterOptions(
+    String query, {
+    SelectOption<T>? highlighted,
+  }) async {
     _searchQuery = query;
 
     if (widget.onSearch != null) {
@@ -807,7 +908,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
         if (mounted && epoch == _listEpoch && _searchQuery == query) {
           setState(() {
             _filteredOptions = results;
-            _hoveredIndex = -1;
+            _hoveredIndex = _indexOfOption(results, highlighted);
             _isSearching = false;
           });
         }
@@ -824,7 +925,6 @@ class _WSelectState<T> extends State<WSelect<T>> {
     } else {
       // Local filtering
       setState(() {
-        _hoveredIndex = -1;
         if (query.isEmpty) {
           _filteredOptions = widget.options;
         } else {
@@ -834,6 +934,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
               )
               .toList();
         }
+        _hoveredIndex = _indexOfOption(_filteredOptions, highlighted);
       });
     }
   }
@@ -1381,9 +1482,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
         // moves on.
         return Builder(
           builder: (BuildContext rowContext) {
-            if (_revealPending && index == _revealIndex) {
-              _revealContext = rowContext;
-            }
+            if (_revealPending) _revealRows[index] = rowContext;
 
             return row;
           },

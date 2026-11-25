@@ -453,6 +453,49 @@ void main() {
       expect(menu.contains(row.bottomRight), isTrue);
     });
 
+    testWidgets(
+      'scrolls a selected option into view past variable-height rows (#322)',
+      (tester) async {
+        final List<SelectOption<String>> many = List.generate(
+          60,
+          (int i) => SelectOption(value: 'o$i', label: 'Option $i'),
+        );
+        await tester.pumpWidget(
+          wrapWithTheme(
+            WSelect<String>(
+              options: many,
+              value: 'o50',
+              onChange: (_) {},
+              maxMenuHeight: 200,
+              itemBuilder: (context, option, isSelected, isHovered) {
+                final int index = many.indexOf(option);
+
+                return SizedBox(
+                  height: index < 30 ? 32 : 160,
+                  child: Text(option.label),
+                );
+              },
+            ),
+          ),
+        );
+
+        await _focusTrigger(tester);
+        await _press(tester, LogicalKeyboardKey.enter);
+
+        // The trigger shows the selected label too, so the row is the second.
+        expect(find.text('Option 50'), findsNWidgets(2));
+        final Finder label = find.text('Option 50').last;
+        final Rect menu = tester.getRect(
+          find.ancestor(of: label, matching: find.byType(Container)).first,
+        );
+        final Rect row = tester.getRect(
+          find.ancestor(of: label, matching: find.byType(SizedBox)).first,
+        );
+        expect(menu.contains(row.topLeft), isTrue);
+        expect(menu.contains(row.bottomRight - const Offset(1, 1)), isTrue);
+      },
+    );
+
     testWidgets('opens on the D-pad select key (#322)', (tester) async {
       final Map<String, bool> seen = {};
       await tester.pumpWidget(wrapWithTheme(_select(seen: seen)));
@@ -635,6 +678,124 @@ void main() {
 
       expect(_highlighted(seen), isEmpty);
     });
+
+    testWidgets('keeps the highlight through a filtered multi toggle (#322)', (
+      tester,
+    ) async {
+      final Map<String, bool> seen = {};
+      List<String> values = [];
+      await tester.pumpWidget(
+        wrapWithTheme(
+          StatefulBuilder(
+            builder: (context, setState) => WSelect<String>(
+              options: [..._options],
+              isMulti: true,
+              values: values,
+              searchable: true,
+              onMultiChange: (List<String> next) =>
+                  setState(() => values = next),
+              itemBuilder: _recording(seen),
+            ),
+          ),
+        ),
+      );
+
+      await _tapOpen(tester);
+      await tester.enterText(find.byType(EditableText), 'ch');
+      await tester.pumpAndSettle();
+      await _press(tester, LogicalKeyboardKey.arrowDown);
+      expect(_highlighted(seen), ['Cherry']);
+
+      await _press(tester, LogicalKeyboardKey.enter);
+      expect(values, ['cherry']);
+      expect(_highlighted(seen), ['Cherry']);
+
+      await _press(tester, LogicalKeyboardKey.enter);
+      expect(values, isEmpty);
+    });
+
+    testWidgets(
+      'keeps the highlight through a remote-filtered multi toggle (#322)',
+      (tester) async {
+        final Map<String, bool> seen = {};
+        List<String> values = [];
+        await tester.pumpWidget(
+          wrapWithTheme(
+            StatefulBuilder(
+              builder: (context, setState) => WSelect<String>(
+                options: [..._options],
+                isMulti: true,
+                values: values,
+                searchable: true,
+                onSearch: (String query) async => _options
+                    .where((option) => option.value.startsWith(query))
+                    .toList(),
+                onMultiChange: (List<String> next) =>
+                    setState(() => values = next),
+                itemBuilder: _recording(seen),
+              ),
+            ),
+          ),
+        );
+
+        await _tapOpen(tester);
+        await tester.enterText(find.byType(EditableText), 'ch');
+        await tester.pumpAndSettle();
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        await _press(tester, LogicalKeyboardKey.enter);
+        expect(values, ['cherry']);
+        expect(_highlighted(seen), ['Cherry']);
+
+        await _press(tester, LogicalKeyboardKey.enter);
+        expect(values, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'clears a filtered highlight whose option leaves the list (#322)',
+      (tester) async {
+        final Map<String, bool> seen = {};
+        final List<String> changes = [];
+        List<SelectOption<String>> options = [..._options];
+        late StateSetter rebuild;
+        await tester.pumpWidget(
+          wrapWithTheme(
+            StatefulBuilder(
+              builder: (context, setState) {
+                rebuild = setState;
+
+                return WSelect<String>(
+                  options: options,
+                  isMulti: true,
+                  values: const [],
+                  searchable: true,
+                  onMultiChange: (List<String> next) => changes.add('$next'),
+                  itemBuilder: _recording(seen),
+                );
+              },
+            ),
+          ),
+        );
+
+        await _tapOpen(tester);
+        await tester.enterText(find.byType(EditableText), 'e');
+        await tester.pumpAndSettle();
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        expect(_highlighted(seen), ['Cherry']);
+
+        rebuild(
+          () => options = [
+            for (final SelectOption<String> option in _options)
+              if (option.value != 'cherry') option,
+          ],
+        );
+        await tester.pumpAndSettle();
+        await _press(tester, LogicalKeyboardKey.enter);
+
+        expect(changes, isEmpty);
+      },
+    );
 
     testWidgets(
       'ignores the arrows and Enter while a search is pending (#322)',

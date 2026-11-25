@@ -59,7 +59,9 @@ final RegExp _opacitySuffix = RegExp(r'^(?:[0-9]+|\[[0-9]*\.?[0-9]+\])$');
 /// untouched. The outermost `/N` replaces any inner `/M`. An exact key that
 /// itself contains `/` wins over this reading. When no produced class is a
 /// colour the alias still expands, the `/N` is dropped and [onWarn] fires.
-/// Without [isColorClass] an `<alias>/<N>` token is left verbatim.
+/// Without [isColorClass] an `<alias>/<N>` token is left verbatim. An alias key
+/// that equals the stem of a built-in `/N` token (`text-lg` of `text-lg/6`)
+/// takes that token over, as an alias key already shadows the bare built-in.
 ///
 /// ### Termination
 ///

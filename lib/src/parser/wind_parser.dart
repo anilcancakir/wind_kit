@@ -244,6 +244,9 @@ class WindParser {
   /// fill and stroke, gradient stops) with their colour grammar: a named colour
   /// with an optional shade, or an arbitrary `[#hex]` of 3, 4, 6 or 8 digits.
   /// `decoration-*` is left out on purpose: its regex has no `/N` slot.
+  ///
+  /// Keep this a superset of each family parser's own colour grammar: a colour
+  /// the parser reads but this misses would silently lose its alias `/N`.
   static final RegExp _colorClassRegex = RegExp(
     r'^(?:bg|text|border|ring|shadow|fill|stroke|from|via|to)-'
     r'(?:(?<color>[a-zA-Z0-9]+)-?(?<shade>[0-9]{0,3})'
@@ -271,12 +274,14 @@ class WindParser {
     );
   }
 
-  /// Emits a debug-only cycle/cap warning, deduped per session.
+  /// Emits a debug-only expander warning (cycle, depth cap, budget or an
+  /// ignored opacity), deduped per session.
   ///
-  /// Keyed by the offending [className] so a repeated render of the same input
-  /// logs once. The diagnostic [message] comes from the alias expander.
+  /// Keyed by the offending [className] and the [message] so a repeated render
+  /// of the same input logs once, while two different problems on one className
+  /// both surface. The diagnostic comes from the alias expander.
   static void _warnAlias(String className, String message) {
-    if (_warnedAliases.add('cycle:$className')) {
+    if (_warnedAliases.add('expand:$className:$message')) {
       debugPrint(message);
     }
   }

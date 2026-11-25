@@ -311,19 +311,28 @@ void main() {
     testWidgets('ignores /N on an alias with no colour class (#324)', (
       tester,
     ) async {
-      final plain = await parseAll(
-        tester,
-        const {'bg-hero': 'bg-cover'},
-        const ['bg-hero'],
-      );
-      WindParser.clearCache();
-      final faded = await parseAll(
-        tester,
-        const {'bg-hero': 'bg-cover'},
-        const ['bg-hero/50'],
-      );
+      final logs = <String>[];
+      final original = debugPrint;
+      debugPrint = (message, {wrapWidth}) => logs.add(message ?? '');
 
-      expect(faded.single.decoration, plain.single.decoration);
+      late final List<WindStyle> styles;
+      try {
+        styles = await parseAll(
+          tester,
+          const {'card': 'p-4 rounded-lg'},
+          const ['card/50'],
+        );
+      } finally {
+        debugPrint = original;
+      }
+
+      // The alias still expands (padding is set) and the `/50` is dropped
+      // with a diagnostic instead of changing any class.
+      expect(styles.single.padding, const EdgeInsets.all(16));
+      expect(
+        logs.where((l) => l.contains("alias 'card' has no colour class")),
+        hasLength(1),
+      );
     });
   });
 }

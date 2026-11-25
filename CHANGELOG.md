@@ -8,6 +8,14 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- **An opacity suffix works on an alias token, so `bg-brand/50` tints the alias colour instead of dropping silently.** An opacity suffix worked on palette and arbitrary colours, but on an alias token it was dropped without a word, which pushed apps to precompute a tint per alias or wrap a box in `Opacity` (which also fades its children). `<alias>/<N>` now expands the alias and appends `/N` to every colour class of the expansion, including `dark:` and state-prefixed peers and nested aliases; the outer `/N` replaces an inner `/M`; non-colour classes such as `px-4` and `text-lg` are left alone; an exact alias key containing `/` still wins; a colourless alias expands with its `/N` dropped and warns in debug. Colour detection is a predicate `WindParser` passes to `expandAliases` as `isColorClass`, so the expander still imports no parser. A prefix regex inside the expander was rejected because it cannot tell `text-lg/6` (a line height) from a colour, and multiplying an inner `/M` with the outer `/N` was rejected as surprising. `decoration-*` colours are not covered. `lib/src/parser/alias_expander.dart`, `lib/src/parser/wind_parser.dart`, `test/parser/alias_expander_test.dart`, `test/parser/wind_parser_alias_test.dart`, `doc/core-concepts/theming.md`, `doc/styling/opacity.md` (#324)
+
+### Fixed
+
+- **Two weight classes on one text, such as `font-medium font-semibold`, resolve to the last weight with no `fontFamily` set.** The weight step only ran while no weight was set, so the earlier weight reached the family step, whose `[a-zA-Z]+` branch accepts any word: `font-medium font-semibold` gave `FontWeight.w600` with `fontFamily: 'medium'`, and `font-[600]` became family `'600'`. Every valid weight class is now consumed whatever its position, the last one still wins, and a `font-display` style non-weight still reads as a family. `lib/src/parser/parsers/text_parser.dart`, `test/parser/parsers/text_parser_test.dart`, `doc/typography/font-weight.md` (#317)
+
 ---
 
 ## [1.12.2] - 2026-11-16

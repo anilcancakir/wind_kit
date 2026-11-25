@@ -16,9 +16,12 @@ import 'w_text.dart';
 ///
 /// ### Supported Features:
 /// - **States:** `hover:bg-blue-700`, `focus:ring-2`, `disabled:opacity-50`
-/// - **Loading:** Built-in spinner. It REPLACES the child rather than
-///   overlaying it, so no class is needed to hide the label; `loadingColor`
-///   sets the spinner's colour and `loadingText` puts a caption beside it.
+/// - **Loading:** Built-in spinner, so no class is needed to hide the
+///   label; `loadingColor` sets the spinner's colour and `loadingText` puts a
+///   caption beside it. The child stays in the tree, unpainted and outside
+///   the layout size, when nothing else names the button: the accessible
+///   name is `semanticLabel`, else the rendered `loadingText`, else the
+///   child's text.
 /// - **Interactvity:** `onTap`, `onDoubleTap`, `onLongPress`
 /// - **Styling:** `bg-blue-500`, `text-white`, `rounded`, `shadow`
 ///
@@ -67,7 +70,8 @@ class WButton extends StatelessWidget {
   ///
   /// **Effects:**
   /// - Disables user interaction (`onTap` will not fire).
-  /// - Replaces or overlays content with a loading spinner.
+  /// - Paints a loading spinner in place of the child; the child stays
+  ///   mounted but unpainted when it supplies the accessible name.
   /// - Activates the `loading:` prefix for styling (e.g., `loading:opacity-50`).
   final bool isLoading;
 
@@ -180,6 +184,31 @@ class WButton extends StatelessWidget {
 
           // Build content
           Widget content = isLoading ? _buildLoadingContent(styles) : child;
+
+          // A spinner carries no text, so a loading button named by neither
+          // `semanticLabel` nor a rendered `loadingText` would be nameless.
+          // The child stays mounted, unpainted and out of the layout size,
+          // purely so its text names the merged button node.
+          final bool namedByChild =
+              isLoading &&
+              semanticLabel == null &&
+              (loadingText == null || loadingWidget != null);
+          if (namedByChild) {
+            content = Stack(
+              alignment: Alignment.center,
+              fit: StackFit.passthrough,
+              children: [
+                content,
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0,
+                    alwaysIncludeSemantics: true,
+                    child: child,
+                  ),
+                ),
+              ],
+            );
+          }
 
           // Determine alignment for content
           // justify-center in flex maps to centered content

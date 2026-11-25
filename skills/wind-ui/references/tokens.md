@@ -48,7 +48,7 @@ Inline colour escape hatches that bypass the cache key:
 - `WText(foregroundColor: Color)` overrides any `text-*` / `dark:text-*`.
 - `WIcon(foregroundColor: Color)` overrides any `text-*` / `dark:text-*`.
 
-`WindThemeData.aliases` shorthand expansion: if the active theme has `aliases` set, `WindParser.parse` expands matching bare tokens to their full className strings before the parser pipeline runs. Aliases are not tokens themselves and do not appear in the catalogue below; they are transparent to every parser. See `references/theme.md` and `references/tailwind-divergence.md` for details.
+`WindThemeData.aliases` shorthand expansion: if the active theme has `aliases` set, `WindParser.parse` expands matching bare tokens to their full className strings before the parser pipeline runs. Aliases are not tokens themselves and do not appear in the catalogue below; they are transparent to every parser. `<alias>/N` (for example `bg-brand/50`) appends `/N` to the colour classes of the expansion, `dark:` peers included, and leaves non-colour classes untouched. See `references/theme.md` and `references/tailwind-divergence.md` for details.
 
 ---
 
@@ -310,7 +310,7 @@ Order: covered in §2.
 
 **Alignment**: `text-left` `text-center` `text-right` `text-justify` `text-start` `text-end` (last two are RTL-aware via `Directionality`).
 
-**Weight**: `font-thin` (100) `font-extralight` (200) `font-light` (300) `font-normal` (400) `font-medium` (500) `font-semibold` (600) `font-bold` (700) `font-extrabold` (800) `font-black` (900). Arbitrary: `font-[100]` through `font-[900]`.
+**Weight**: `font-thin` (100) `font-extralight` (200) `font-light` (300) `font-normal` (400) `font-medium` (500) `font-semibold` (600) `font-bold` (700) `font-extrabold` (800) `font-black` (900). Arbitrary: `font-[100]` through `font-[900]`. A second weight class is never read as a font family; the last weight wins.
 
 **Style**: `italic` / `not-italic`.
 

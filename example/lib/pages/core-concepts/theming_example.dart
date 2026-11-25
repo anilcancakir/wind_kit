@@ -308,6 +308,7 @@ class _AliasesSection extends StatelessWidget {
       'row': 'flex flex-row',
       'col': 'flex flex-col',
       'center': 'items-center justify-center',
+      'bg-brand': 'bg-emerald-500 dark:bg-emerald-400',
     };
 
     return ExampleSection(
@@ -374,6 +375,31 @@ class _AliasesSection extends StatelessWidget {
                 ),
               ],
             ),
+            WDiv(
+              className: 'flex flex-col gap-2',
+              children: [
+                WText(
+                  'Opacity on an alias',
+                  className:
+                      'text-xs font-semibold uppercase tracking-wide '
+                      'text-slate-500 dark:text-slate-400',
+                ),
+                WDiv(
+                  className: 'p-3 rounded-lg bg-slate-100 dark:bg-slate-800',
+                  child: WDiv(
+                    className: 'row center gap-2',
+                    children: [
+                      WDiv(className: 'w-8 h-8 rounded bg-brand'),
+                      WDiv(className: 'w-8 h-8 rounded bg-brand/50'),
+                      WText(
+                        'bg-brand, bg-brand/50',
+                        className: 'text-xs font-mono text-slate-600 dark:text-slate-300',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             _CodeBlock(
               code:
                   'WindTheme(\n'
@@ -382,11 +408,14 @@ class _AliasesSection extends StatelessWidget {
                   "      'row': 'flex flex-row',\n"
                   "      'col': 'flex flex-col',\n"
                   "      'center': 'items-center justify-center',\n"
+                  "      'bg-brand': 'bg-emerald-500 dark:bg-emerald-400',\n"
                   '    },\n'
                   '  ),\n'
                   '  child: WDiv(\n'
                   "    className: 'row center gap-2',\n"
-                  '    children: [...],\n'
+                  '    children: [\n'
+                  "      WDiv(className: 'w-8 h-8 rounded bg-brand/50'),\n"
+                  '    ],\n'
                   '  ),\n'
                   ')',
             ),

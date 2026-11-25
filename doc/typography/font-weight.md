@@ -34,6 +34,13 @@ WText('Most text uses font-normal', className: 'font-normal')
 WText('Important text uses font-bold', className: 'font-bold')
 ```
 
+> [!NOTE]
+> When a className carries two weight classes, the last one wins and the earlier one is dropped; it is never read as a font family. A recipe base `font-medium` plus a variant `selected:font-semibold` resolves to semibold while selected.
+
+```dart
+WText('Selected tab', className: 'font-medium selected:font-semibold', states: {'selected'})
+```
+
 <a name="quick-reference"></a>
 ## Quick Reference
 

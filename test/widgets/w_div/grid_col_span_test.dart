@@ -2,9 +2,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:wind_kit/wind_kit.dart';
 
-Widget wrapWithTheme(Widget child, {double width = 600}) => MaterialApp(
+Widget wrapWithTheme(
+  Widget child, {
+  double width = 600,
+  Map<String, String> aliases = const {},
+}) => MaterialApp(
   home: WindTheme(
-    data: WindThemeData(),
+    data: WindThemeData(aliases: aliases),
     child: Scaffold(
       body: SizedBox(width: width, child: child),
     ),
@@ -146,6 +150,52 @@ void main() {
         );
 
         expect(tester.getSize(at('a')).width, 192);
+      });
+
+      testWidgets('a theme alias that expands to a span still spans (#328)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            WDiv(
+              className: 'grid grid-cols-4 gap-4$extra',
+              children: [cell('a', 'wide-tile'), cell('b', null)],
+            ),
+            width: 400,
+            aliases: const {'wide-tile': 'col-span-2'},
+          ),
+        );
+
+        expect(tester.getSize(at('a')).width, 192);
+        expect(tester.getSize(at('b')).width, 88);
+      });
+
+      testWidgets('a grid narrower than its gaps collapses every cell (#328)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            WDiv(
+              className: 'grid grid-cols-12 gap-4$extra',
+              children: [
+                WDiv(
+                  key: const Key('a'),
+                  className: 'col-span-full',
+                  child: const SizedBox(width: 100, height: 50),
+                ),
+                WDiv(
+                  key: const Key('b'),
+                  child: const SizedBox(width: 100, height: 50),
+                ),
+              ],
+            ),
+            width: 150,
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(at('a')).width, 0);
+        expect(tester.getSize(at('b')).width, 0);
       });
 
       testWidgets('an awkward width keeps a full row on one line (#328)', (

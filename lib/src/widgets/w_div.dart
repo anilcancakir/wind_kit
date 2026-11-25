@@ -1,10 +1,12 @@
 import 'package:flutter/widgets.dart';
 
+import '../parser/alias_expander.dart';
 import '../parser/wind_parser.dart';
 import '../parser/wind_style.dart';
 import '../state/wind_anchor_state_provider.dart';
 import '../state/wind_flex_overflow_scope.dart';
 import '../state/wind_min_width_scroll_scope.dart';
+import '../theme/wind_theme.dart';
 import '../utils/wind_helpers.dart';
 import '../utils/wind_logger.dart';
 import '../utils/wind_perf_counters.dart';
@@ -1356,6 +1358,9 @@ class WDiv extends StatelessWidget {
           children: [
             for (var i = 0; i < children!.length; i++)
               SizedBox(
+                // A grid narrower than its gaps has no column width: collapse
+                // every cell to zero, as WindEqualHeightRow does, rather than
+                // leaving it at its natural width.
                 width: itemWidth > 0
                     ? _spanWidth(
                         spans?[i] ?? 1,
@@ -1364,7 +1369,7 @@ class WDiv extends StatelessWidget {
                         gapX,
                         availableWidth,
                       )
-                    : null,
+                    : 0,
                 child: children![i],
               ),
           ],
@@ -1376,14 +1381,17 @@ class WDiv extends StatelessWidget {
   /// Resolves each child's `col-span-*` for a grid of [cols] columns, clamped
   /// to 1..[cols] (`col-span-full` is [WindStyle.gridColSpanFull], so it caps
   /// at [cols]). Null when no child asks for a span, so a plain grid pays no
-  /// parse. Only a child whose className mentions `col-span-` is parsed, with
-  /// the build [context] so `md:col-span-2` resolves by breakpoint; a child
-  /// that exposes no className keeps one column.
+  /// parse. Only a child whose className mentions `col-span-`, once the theme
+  /// aliases are expanded, is parsed, with the build [context] so
+  /// `md:col-span-2` resolves by breakpoint; a child that exposes no className
+  /// keeps one column.
   List<int>? _resolveColSpans(int cols, BuildContext context) {
+    final aliases = WindTheme.dataOf(context).aliases;
     List<int>? spans;
     for (var i = 0; i < children!.length; i++) {
       final className = _extractChildClassName(children![i]);
-      if (className == null || !className.contains('col-span-')) continue;
+      if (className == null) continue;
+      if (!expandAliases(className, aliases).contains('col-span-')) continue;
       final colSpan = WindParser.parse(
         className,
         context,

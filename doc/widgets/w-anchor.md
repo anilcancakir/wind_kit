@@ -80,7 +80,7 @@ const WAnchor({
 | `semanticLabel` | `String?` | `null` | Accessible name for icon-only controls. When set, excludes the child subtree from semantics so the label overrides any child text; prefer it for icon-only controls rather than controls that already expose readable text. |
 | `trackFocus` | `bool` | `true` | Whether a gestureless anchor installs a focus node. `WDiv` passes `false` when its className has no `focus:` class. Ignored when the anchor has a gesture, which always keeps its node, and when `focusNode` or `autofocus` is given. |
 | `focusNode` | `FocusNode?` | `null` | A node you own, to request, move or read focus from outside. The anchor attaches to it and never disposes it; with `null` it creates and disposes a node of its own. Giving one installs the `Focus` even on a gestureless anchor with `trackFocus: false`. While attached, the anchor sets the node's `canRequestFocus` (false whenever it is disabled), and the node keeps that value after the anchor lets go. |
-| `autofocus` | `bool` | `false` | Takes focus on the first frame, only when nothing in the focus scope is focused (as `Focus.autofocus`). A disabled anchor ignores it. |
+| `autofocus` | `bool` | `false` | Takes focus on the first frame, only when nothing in the focus scope is focused (as `Focus.autofocus`). A disabled anchor ignores it and does not ask again once enabled: the request belongs to the mount. |
 
 <a name="layout-modes"></a>
 ## Layout Modes
@@ -150,7 +150,7 @@ WAnchor(
 _node.requestFocus();
 ```
 
-`autofocus` takes focus on the first frame, and only when nothing in the focus scope is focused. A node or `autofocus` also makes a gestureless anchor focusable under another anchor, and `canRequestFocus` stays false while `isDisabled`.
+`autofocus` takes focus on the first frame, and only when nothing in the focus scope is focused. An anchor disabled at mount does not take focus when it is enabled later. A node or `autofocus` also makes a gestureless anchor focusable under another anchor, and `canRequestFocus` stays false while `isDisabled`.
 
 ### One control is one stop
 

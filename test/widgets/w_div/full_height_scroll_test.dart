@@ -44,21 +44,25 @@ void main() {
       expect(tester.getSize(find.byType(_Probe)).height, 160);
     });
 
-    testWidgets('asserts as a direct child of the scroll (#318)', (
-      tester,
-    ) async {
-      await pumpScroll(
-        tester,
-        const WDiv(
-          className: 'overflow-y-auto',
-          child: WDiv(className: 'h-full', child: _Probe()),
-        ),
-      );
+    testWidgets(
+      'asserts as a direct child of the scroll, pointing at a bounded '
+      'column with the scroll on its body (#318)',
+      (tester) async {
+        await pumpScroll(
+          tester,
+          const WDiv(
+            className: 'overflow-y-auto',
+            child: WDiv(className: 'h-full', child: _Probe()),
+          ),
+        );
 
-      final Object? error = tester.takeException();
-      expect(error, isA<AssertionError>());
-      expect(error.toString(), contains('flex-1'));
-    });
+        final Object? error = tester.takeException();
+        expect(error, isA<AssertionError>());
+        expect(error.toString(), contains('`flex flex-col h-full`'));
+        expect(error.toString(), contains('`flex-1 overflow-y-auto`'));
+        expect(error.toString(), isNot(contains('scroll on the column')));
+      },
+    );
 
     testWidgets('fills a SizedBox in between (#318)', (tester) async {
       await pumpScroll(
@@ -128,6 +132,36 @@ void main() {
       expect(tester.getSize(find.byKey(wide)).width, 300);
       expect(tester.getSize(find.byKey(fill)).height, 160);
     });
+
+    testWidgets(
+      'w-full h-full fills the viewport width in overflow-auto when a '
+      'parent loosens the minimum width (#318)',
+      (tester) async {
+        const Key fill = ValueKey<String>('fill');
+
+        // `Align` drops the inherited minimum width, so the only thing left to
+        // size the box against is the viewport the scroll publishes.
+        await pumpScroll(
+          tester,
+          const WDiv(
+            className: 'overflow-auto',
+            child: SizedBox(
+              height: 160,
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: WDiv(
+                  className: 'w-full h-full',
+                  child: SizedBox(key: fill, width: 50, height: 10),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(find.byKey(fill)).width, 300);
+      },
+    );
 
     testWidgets('a padding-only WDiv in between still reports, since it passes '
         'the unbounded height on (#318)', (tester) async {

@@ -1954,17 +1954,6 @@ class WDiv extends StatelessWidget {
       final WindMinWidthScrollScope? scrollScope =
           WindMinWidthScrollScope.maybeOf(context);
 
-      // Actionable dev-time guard (stripped in release): `h-full` inside a
-      // vertical scroll resolves to an unbounded height and yields a cryptic
-      // Flutter failure. Point the developer at the `flex-1` fix instead.
-      assert(
-        !(isFullHeight && (scrollScope?.verticalUnbounded ?? false)),
-        'Wind: `h-full` on a child inside a vertical scroll '
-        '(overflow-y-auto/overflow-y-scroll) resolves to an unbounded height. '
-        'Use `flex-1` inside a `flex flex-col` (with the scroll on the column) '
-        'instead of `h-full` inside a vertical scroll.',
-      );
-
       // Fast path: width-only sizing (no heightFactor), avoids LayoutBuilder
       // Covers: w-full, w-full max-w-*, w-1/2, w-1/3, etc.
       if (styles.heightFactor == null) {
@@ -2034,6 +2023,7 @@ class WDiv extends StatelessWidget {
             maxHeight: hasMaxHeightConstraint
                 ? styles.constraints!.maxHeight
                 : null,
+            insideVerticalScroll: scrollScope?.verticalUnbounded ?? false,
             child: innerChild,
           );
         } else {
@@ -2076,6 +2066,7 @@ class WDiv extends StatelessWidget {
             maxHeight: hasMaxHeightConstraint
                 ? styles.constraints!.maxHeight
                 : null,
+            insideVerticalScroll: scrollScope?.verticalUnbounded ?? false,
             child: innerChild,
           );
         } else {

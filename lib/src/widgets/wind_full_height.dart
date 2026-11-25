@@ -43,6 +43,14 @@ class WindFullHeightBox extends SingleChildRenderObjectWidget {
   /// `max-h-*`, or null when the class is absent.
   final double? maxHeight;
 
+  /// Whether an ancestor is a vertical scroll, so an unbounded incoming height
+  /// is a developer error rather than a `Column` or sliver to fall back for.
+  ///
+  /// Only the render object can tell the two apart: the scope that carries this
+  /// flag says some ancestor is unbounded, but a `h-40` or a `SizedBox` in
+  /// between bounds the height again and `h-full` then has something to fill.
+  final bool insideVerticalScroll;
+
   /// Creates a [WindFullHeightBox].
   const WindFullHeightBox({
     super.key,
@@ -50,12 +58,18 @@ class WindFullHeightBox extends SingleChildRenderObjectWidget {
     this.widthFactor,
     this.maxWidth,
     this.maxHeight,
+    this.insideVerticalScroll = false,
     required super.child,
   });
 
   @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _RenderFullHeight(fallbackHeight, widthFactor, maxWidth, maxHeight);
+  RenderObject createRenderObject(BuildContext context) => _RenderFullHeight(
+    fallbackHeight,
+    widthFactor,
+    maxWidth,
+    maxHeight,
+    insideVerticalScroll,
+  );
 
   @override
   void updateRenderObject(
@@ -66,7 +80,8 @@ class WindFullHeightBox extends SingleChildRenderObjectWidget {
       ..fallbackHeight = fallbackHeight
       ..widthFactor = widthFactor
       ..maxWidth = maxWidth
-      ..maxHeight = maxHeight;
+      ..maxHeight = maxHeight
+      ..insideVerticalScroll = insideVerticalScroll;
   }
 }
 
@@ -76,7 +91,15 @@ class _RenderFullHeight extends RenderProxyBox {
     this._widthFactor,
     this._maxWidth,
     this._maxHeight,
+    this._insideVerticalScroll,
   );
+
+  bool _insideVerticalScroll;
+  set insideVerticalScroll(bool value) {
+    if (value == _insideVerticalScroll) return;
+    _insideVerticalScroll = value;
+    markNeedsLayout();
+  }
 
   double _fallbackHeight;
   set fallbackHeight(double value) {
@@ -162,8 +185,39 @@ class _RenderFullHeight extends RenderProxyBox {
     return (minWidth, maxWidth);
   }
 
+  /// Dev-time guard, run from an `assert` so release builds drop it: inside a
+  /// vertical scroll the fallback height would be a silent wrong answer, so
+  /// point at the `flex-1` fix instead.
+  ///
+  /// Reported rather than thrown. A throw out of `performLayout` leaves this
+  /// box without a size, and the paint and semantics passes then raise a
+  /// second "not laid out" error per frame that buries this one. Reporting and
+  /// laying out with the fallback height keeps the actionable message the only
+  /// error. Not called from dry layout, which an intrinsic query may run under
+  /// constraints the real layout never sees.
+  bool _reportUnboundedInScroll() {
+    if (!_insideVerticalScroll || constraints.hasBoundedHeight) return true;
+
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: AssertionError(
+          'Wind: `h-full` on a child inside a vertical scroll '
+          '(overflow-y-auto/overflow-y-scroll) resolves to an unbounded '
+          'height. Use `flex-1` inside a `flex flex-col` (with the scroll on '
+          'the column) instead of `h-full` inside a vertical scroll.',
+        ),
+        library: 'wind_kit',
+        context: ErrorDescription('while laying out an h-full element'),
+      ),
+    );
+
+    return true;
+  }
+
   @override
   void performLayout() {
+    assert(_reportUnboundedInScroll());
+
     final double height = _heightFor(constraints);
     final (double minWidth, double maxWidth) = _widthRangeFor(constraints);
 

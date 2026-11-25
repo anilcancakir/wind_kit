@@ -11,9 +11,11 @@ import '../widgets/wind_min_width_scroll.dart';
 ///   descendant sizes to `max(viewport, min-w-*)` (fill on desktop, scroll on
 ///   narrow) instead of asserting on the scroll's unbounded width.
 /// - `overflow-y-auto` / `overflow-y-scroll` sets [verticalUnbounded] so a
-///   descendant that resolves `h-full` (which would collapse to
-///   `double.infinity` on the scroll's unbounded height) can raise an actionable
-///   assert pointing at `flex-1` instead.
+///   descendant that resolves `h-full` can raise an actionable assert pointing
+///   at `flex-1`. The flag only says a vertical scroll is above: the assert
+///   itself fires in `WindFullHeightBox.performLayout`, and only when the
+///   height that box is actually offered is unbounded, since a fixed-height
+///   ancestor in between leaves `h-full` something to fill.
 class WindMinWidthScrollScope extends InheritedWidget {
   /// Shared carrier for the horizontal viewport width; non-null only inside a
   /// horizontally scrollable parent.

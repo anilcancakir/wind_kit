@@ -1,0 +1,156 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:wind_kit/wind_kit.dart';
+
+/// `h-full` below a vertical scroll.
+///
+/// A vertical scroll installs a scope that flags its content as living on an
+/// unbounded height. The flag says only that SOME ancestor is unbounded, not
+/// that the incoming constraints of the `h-full` element are: a `h-40` or a
+/// `SizedBox(height: 200)` in between bounds them again, and `h-full` then has
+/// something to fill. The assert therefore has to read the constraints it is
+/// laid out under, which only the render layer can do.
+void main() {
+  setUp(WindParser.clearCache);
+
+  /// Pumps [child] in a 300 by 400 viewport so the scroll under test has a
+  /// known width.
+  Future<void> pumpScroll(WidgetTester tester, Widget child) {
+    return tester.pumpWidget(
+      MaterialApp(
+        home: WindTheme(
+          data: WindThemeData(),
+          child: Center(child: SizedBox(width: 300, height: 400, child: child)),
+        ),
+      ),
+    );
+  }
+
+  group('h-full below a vertical scroll', () {
+    testWidgets('fills a fixed-height WDiv in between (#318)', (tester) async {
+      await pumpScroll(
+        tester,
+        const WDiv(
+          className: 'overflow-y-auto',
+          child: WDiv(
+            className: 'h-40',
+            child: WDiv(className: 'h-full', child: _Probe()),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byType(_Probe)).height, 160);
+    });
+
+    testWidgets('asserts as a direct child of the scroll (#318)', (
+      tester,
+    ) async {
+      await pumpScroll(
+        tester,
+        const WDiv(
+          className: 'overflow-y-auto',
+          child: WDiv(className: 'h-full', child: _Probe()),
+        ),
+      );
+
+      final Object? error = tester.takeException();
+      expect(error, isA<AssertionError>());
+      expect(error.toString(), contains('flex-1'));
+    });
+
+    testWidgets('fills a SizedBox in between (#318)', (tester) async {
+      await pumpScroll(
+        tester,
+        const WDiv(
+          className: 'overflow-y-auto',
+          child: SizedBox(
+            height: 200,
+            child: WDiv(className: 'h-full', child: _Probe()),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byType(_Probe)).height, 200);
+    });
+
+    testWidgets('fills a Positioned.fill inside a Stack (#318)', (
+      tester,
+    ) async {
+      await pumpScroll(
+        tester,
+        const WDiv(
+          className: 'overflow-y-auto',
+          child: SizedBox(
+            height: 200,
+            child: Stack(
+              children: <Widget>[
+                Positioned.fill(
+                  child: WDiv(className: 'h-full', child: _Probe()),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byType(_Probe)).height, 200);
+    });
+
+    testWidgets('keeps a w-full sibling at the viewport width in overflow-auto '
+        '(#318)', (tester) async {
+      const Key wide = ValueKey<String>('wide');
+      const Key fill = ValueKey<String>('fill');
+
+      // Both axes scroll, so the probe's width is unbounded: it takes a fixed
+      // width and only fills the height.
+      await pumpScroll(
+        tester,
+        const WDiv(
+          className: 'overflow-auto flex flex-col',
+          children: <Widget>[
+            WDiv(key: wide, className: 'w-full', child: SizedBox(height: 10)),
+            WDiv(
+              className: 'h-40',
+              child: WDiv(
+                className: 'h-full',
+                child: SizedBox(key: fill, width: 50, height: double.infinity),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byKey(wide)).width, 300);
+      expect(tester.getSize(find.byKey(fill)).height, 160);
+    });
+
+    testWidgets('still asserts under a Column that offers an unbounded height '
+        '(#318)', (tester) async {
+      await pumpScroll(
+        tester,
+        const WDiv(
+          className: 'overflow-y-auto',
+          child: WDiv(
+            className: 'flex flex-col',
+            children: <Widget>[WDiv(className: 'h-full', child: _Probe())],
+          ),
+        ),
+      );
+
+      final Object? error = tester.takeException();
+      expect(error, isA<AssertionError>());
+      expect(error.toString(), contains('flex-1'));
+    });
+  });
+}
+
+class _Probe extends StatelessWidget {
+  const _Probe();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.expand();
+}

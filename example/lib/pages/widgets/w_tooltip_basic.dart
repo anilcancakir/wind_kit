@@ -108,6 +108,7 @@ class _IconAction extends StatelessWidget {
         p-2 rounded-lg
         bg-slate-100 dark:bg-slate-700
         hover:bg-slate-200 dark:hover:bg-slate-600
+        focus:ring-2 focus:ring-slate-400 dark:focus:ring-slate-500
         duration-200
       ''',
       child: WIcon(

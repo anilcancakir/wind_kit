@@ -11,10 +11,12 @@ import 'w_text.dart';
 ///
 /// A Material-free tooltip built on [RawTooltip]. The message shows in a
 /// `className`-styled box after the pointer has hovered the [child] for
-/// [hoverDelay], or after a long press on touch devices, and fades out when
-/// the pointer leaves. The message is also exposed as the [child]'s semantics
-/// tooltip. An empty [message] renders the bare [child]: no overlay, no
-/// semantics tooltip.
+/// [hoverDelay], at once when the keyboard moves focus into the [child], or
+/// after a long press on touch devices. It hides when the pointer leaves, on
+/// blur and on Escape, which is consumed only while a tooltip is open. The
+/// tooltip never takes focus and is not a Tab stop. The message is also
+/// exposed as the [child]'s semantics tooltip. An empty [message] renders the
+/// bare [child]: no overlay, no semantics tooltip.
 ///
 /// Needs an [Overlay] ancestor, which any `MaterialApp` or `WidgetsApp`
 /// provides.
@@ -75,8 +77,10 @@ class _WTooltipState extends State<WTooltip> {
 
   final GlobalKey<RawTooltipState> _tooltipKey = GlobalKey<RawTooltipState>();
 
-  /// Whether the current focus showed the tooltip, so a blur hides only what
-  /// a focus opened and never a tooltip the pointer is holding open.
+  /// Whether the current focus showed the tooltip, so a blur hides tooltips
+  /// only after a focus opened one. Escape or a pointer press can close it
+  /// first and leave the flag set; the next blur then dismisses whatever is
+  /// open, which [RawTooltip.dismissAllToolTips] cannot narrow to this one.
   bool _shownByFocus = false;
 
   @override
@@ -86,6 +90,7 @@ class _WTooltipState extends State<WTooltip> {
       semanticsTooltip: widget.message,
       hoverDelay: widget.hoverDelay,
       triggerMode: TooltipTriggerMode.longPress,
+      ignorePointer: false,
       positionDelegate: _position,
       tooltipBuilder: _buildTooltip,
       child: Focus(
@@ -203,9 +208,15 @@ class _WTooltipState extends State<WTooltip> {
   }
 }
 
-/// Dismisses every open tooltip on Escape for as long as it is mounted. It
+/// Dismisses every open tooltip on Escape for as long as it is mounted, on the
+/// Flutter versions whose [RawTooltip] does not do it itself (before 3.50). It
 /// sits in the overlay child, which exists only while a tooltip shows, so
 /// Escape is left alone otherwise and reaches the app's own shortcuts.
+///
+/// The early [FocusManager] handler runs before the focus tree, so returning
+/// [KeyEventResult.handled] keeps one Escape from also closing a dialog or
+/// reaching the focused widget. The [HardwareKeyboard] handler covers the case
+/// where nothing has primary focus, which the focus manager never sees.
 class _EscapeDismissal extends StatefulWidget {
   final Widget child;
 
@@ -219,22 +230,36 @@ class _EscapeDismissalState extends State<_EscapeDismissal> {
   @override
   void initState() {
     super.initState();
-    HardwareKeyboard.instance.addHandler(_handleKeyEvent);
+    FocusManager.instance.addEarlyKeyEventHandler(_handleEarlyKeyEvent);
+    HardwareKeyboard.instance.addHandler(_handleHardwareKeyEvent);
   }
 
   @override
   void dispose() {
-    HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
+    FocusManager.instance.removeEarlyKeyEventHandler(_handleEarlyKeyEvent);
+    HardwareKeyboard.instance.removeHandler(_handleHardwareKeyEvent);
     super.dispose();
   }
 
-  bool _handleKeyEvent(KeyEvent event) {
-    if (event is! KeyDownEvent ||
-        event.logicalKey != LogicalKeyboardKey.escape) {
+  static bool _isEscape(KeyEvent event) {
+    return (event is KeyDownEvent || event is KeyRepeatEvent) &&
+        event.logicalKey == LogicalKeyboardKey.escape;
+  }
+
+  KeyEventResult _handleEarlyKeyEvent(KeyEvent event) {
+    if (_isEscape(event) && RawTooltip.dismissAllToolTips()) {
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  bool _handleHardwareKeyEvent(KeyEvent event) {
+    if (FocusManager.instance.primaryFocus != null) {
       return false;
     }
 
-    return RawTooltip.dismissAllToolTips();
+    return _isEscape(event) && RawTooltip.dismissAllToolTips();
   }
 
   @override

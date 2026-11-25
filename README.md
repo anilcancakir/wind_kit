@@ -139,7 +139,7 @@ That runs as written. No `MouseRegion`, no `setState`, no `_isHovered` boolean, 
 
 ## The className language
 
-wind_kit reads Tailwind's vocabulary (`flex`, `p-4`, `bg-blue-500`, `rounded-lg`, `shadow-md`) through a set of token parsers, and the W-prefix widgets that style themselves accept it: `WDiv`, `WText`, `WButton`, `WInput`, `WSelect`, `WPopover`, `WDatePicker`, `WCard`, `WTabs`, `WBadge`, `WSwitch`, `WRadio` and the `WForm*` wrappers that drop straight into a Flutter `Form`.
+wind_kit reads Tailwind's vocabulary (`flex`, `p-4`, `bg-blue-500`, `rounded-lg`, `shadow-md`) through a set of token parsers, and the W-prefix widgets that style themselves accept it: `WDiv`, `WText`, `WButton`, `WInput`, `WSelect`, `WPopover`, `WTooltip`, `WDatePicker`, `WCard`, `WTabs`, `WBadge`, `WSwitch`, `WRadio` and the `WForm*` wrappers that drop straight into a Flutter `Form`.
 
 | Rule | What it means |
 |:---|:---|

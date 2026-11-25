@@ -886,6 +886,30 @@ Trigger interactivity: `enableTriggerOnTap` toggling is driven by a pointer-down
 
 `closeOnOutsideTap: false` keeps the panel open on an outside tap (for a companion panel beside it); it still closes through the `PopoverController`, the trigger, Escape and the `close` callback of `contentBuilder`.
 
+### `WTooltip`
+
+Material-free, className-styled tooltip built on Flutter's `RawTooltip`.
+
+```dart
+const WTooltip({
+  Key? key,
+  required String message,
+  required Widget child,
+  String? className,                       // replaces the default box styling entirely
+  PopoverAlignment alignment = PopoverAlignment.bottomCenter,
+  Offset offset = const Offset(0, 4),      // trigger-to-tooltip gap
+  Duration hoverDelay = const Duration(milliseconds: 500),
+})
+```
+
+- Triggers: hover shows it after `hoverDelay`; keyboard focus shows it at once (only while Flutter's focus highlight mode is the keyboard one, so a touch focus does not); a touch long press shows it and it stays 1.5 s after release.
+- Hides on pointer exit, blur or Escape. Escape is consumed only while a tooltip is open, so it still reaches the app's own shortcuts otherwise.
+- Never takes focus and is not a Tab stop: the child keeps its own focus behaviour.
+- `message` becomes the child's semantics tooltip. An empty `message` renders the bare child: no overlay, no semantics tooltip.
+- Default `className` is `bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-2 py-1 rounded-md`; a given `className` replaces it entirely, so carry the `dark:` pairs yourself.
+- Position goes through the popover helpers: the box flips to the other side and stays on screen, like `WPopover` with `autoFlip`.
+- Needs an `Overlay` ancestor (any `MaterialApp` or `WidgetsApp` has one).
+
 ---
 
 ## 10. Structural: WDynamic

@@ -10,14 +10,15 @@ import 'package:wind_kit/src/widgets/w_div.dart';
 /// `WindParser.parse` resolves them through the real `parse()` path.
 ///
 /// [brightness] forces the theme brightness (system sync is switched off so it
-/// sticks); omitted, the theme keeps its defaults. [colors] and [shadows] extend
-/// the default palette and shadow presets.
+/// sticks); omitted, the theme keeps its defaults. [colors], [shadows] and
+/// [ringWidths] extend the default palette, shadow presets and ring widths.
 Widget wrapWithAliases(
   Map<String, String> aliases,
   Widget child, {
   Brightness? brightness,
   Map<String, MaterialColor>? colors,
   Map<String, List<BoxShadow>>? shadows,
+  Map<String, double>? ringWidths,
 }) {
   return MaterialApp(
     home: WindTheme(
@@ -26,6 +27,7 @@ Widget wrapWithAliases(
         aliases: aliases,
         colors: colors,
         shadows: shadows,
+        ringWidths: ringWidths,
         brightness: brightness ?? Brightness.light,
         syncWithSystem: brightness == null,
       ),
@@ -212,6 +214,7 @@ void main() {
       Set<String>? states,
       Map<String, MaterialColor>? colors,
       Map<String, List<BoxShadow>>? shadows,
+      Map<String, double>? ringWidths,
     }) async {
       final styles = <WindStyle>[];
 
@@ -231,6 +234,7 @@ void main() {
           brightness: brightness,
           colors: colors,
           shadows: shadows,
+          ringWidths: ringWidths,
         ),
       );
 
@@ -352,6 +356,39 @@ void main() {
       expect(styles[0].boxShadow, preset);
       expect(styles[0].decoration?.color, const Color(0x80FFFFFF));
       expect(styles[1].shadowColor?.a, closeTo(0x80 / 255, 0.001));
+    });
+
+    testWidgets(
+      'keeps a ring width that shares a colour name under /N (#324)',
+      (tester) async {
+        final styles = await parseAll(
+          tester,
+          const {'halo': 'ring-red', 'plain': 'ring-red-500'},
+          const ['halo/50', 'plain/50'],
+          ringWidths: const {'red': 6},
+        );
+
+        expect(styles[0].ringWidth, 6);
+        expect(styles[1].ringColor?.a, closeTo(0x80 / 255, 0.001));
+      },
+    );
+
+    testWidgets('keeps a ring width named like a four-digit shade under /N '
+        '(#324)', (tester) async {
+      final styles = await parseAll(
+        tester,
+        const {'halo': 'ring-brand-1000'},
+        const ['halo/50'],
+        colors: {
+          'brand': const MaterialColor(0xFF111111, {
+            500: Color(0xFF111111),
+            1000: Color(0xFF222222),
+          }),
+        },
+        ringWidths: const {'brand-1000': 6},
+      );
+
+      expect(styles.single.ringWidth, 6);
     });
 
     testWidgets('strips a bracketed inner opacity before applying /N (#324)', (

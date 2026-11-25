@@ -260,7 +260,8 @@ class WindParser {
   /// The alias expander asks this to decide which classes of an alias take the
   /// `/N` of `<alias>/<N>`. A colour name without a shade reads as shade 500,
   /// as the colour parsers do, and a `shadow-*` token naming a `theme.shadows`
-  /// preset is that preset, as in `ShadowParser`, never a colour.
+  /// preset is that preset, as in `ShadowParser`, and a `ring-*` token naming a
+  /// `theme.ringWidths` key is that width, as in `RingParser`, never a colour.
   static bool _isColorClass(String bareClass, WindThemeData theme) {
     final match = _colorClassRegex.firstMatch(bareClass);
     if (match == null) return false;
@@ -270,6 +271,11 @@ class WindParser {
 
     if (bareClass.startsWith('shadow-') &&
         theme.shadows.containsKey(bareClass.substring('shadow-'.length))) {
+      return false;
+    }
+
+    if (bareClass.startsWith('ring-') &&
+        theme.ringWidths.containsKey(bareClass.substring('ring-'.length))) {
       return false;
     }
 

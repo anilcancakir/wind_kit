@@ -111,7 +111,11 @@ class WAnchor extends StatefulWidget {
   /// The anchor attaches to it and never disposes it: the caller creates it
   /// and disposes it. When null the anchor creates a node of its own and
   /// disposes that one with itself. Swapping the node on a rebuild moves the
-  /// anchor's listener to the new one, and the old node is left untouched.
+  /// anchor's listener to the new one and never disposes the old node.
+  ///
+  /// While the node is attached, the anchor's [Focus] drives its
+  /// `canRequestFocus`, which is false whenever the anchor is disabled, and
+  /// that value stays on the node after the anchor lets go of it.
   ///
   /// Giving a node installs a `Focus` even on a gestureless anchor with
   /// `trackFocus` off, because a caller that holds a node means to focus it.
@@ -383,11 +387,11 @@ class _WAnchorState extends State<WAnchor> {
     // rows that could never draw focus. Chained primary focus still passes
     // through such a wrapper, because that travels in the provider below,
     // not in the node.
-    Widget innerChild = widget.child;
     //
     // A node or `autofocus` from the caller is a request to be focusable, so
     // either one installs the node and lets it take focus even when gestureless
     // and inheriting.
+    Widget innerChild = widget.child;
     final bool focusRequested = widget.focusNode != null || widget.autofocus;
     if (hasGestures || widget.trackFocus || focusRequested) {
       WindPerfCounters.recordWrapperEmission('Focus');

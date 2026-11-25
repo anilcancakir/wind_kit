@@ -79,7 +79,7 @@ const WAnchor({
 | `mouseCursor` | `MouseCursor?` | `null` | Custom cursor. Defaults to click when interactive, basic when disabled, and `MouseCursor.defer` when the anchor has no gesture, so a styling wrapper keeps the cursor of the control around it. |
 | `semanticLabel` | `String?` | `null` | Accessible name for icon-only controls. When set, excludes the child subtree from semantics so the label overrides any child text; prefer it for icon-only controls rather than controls that already expose readable text. |
 | `trackFocus` | `bool` | `true` | Whether a gestureless anchor installs a focus node. `WDiv` passes `false` when its className has no `focus:` class. Ignored when the anchor has a gesture, which always keeps its node, and when `focusNode` or `autofocus` is given. |
-| `focusNode` | `FocusNode?` | `null` | A node you own, to request, move or read focus from outside. The anchor attaches to it and never disposes it; with `null` it creates and disposes a node of its own. Giving one installs the `Focus` even on a gestureless anchor with `trackFocus: false`. |
+| `focusNode` | `FocusNode?` | `null` | A node you own, to request, move or read focus from outside. The anchor attaches to it and never disposes it; with `null` it creates and disposes a node of its own. Giving one installs the `Focus` even on a gestureless anchor with `trackFocus: false`. While attached, the anchor sets the node's `canRequestFocus` (false whenever it is disabled), and the node keeps that value after the anchor lets go. |
 | `autofocus` | `bool` | `false` | Takes focus on the first frame, only when nothing in the focus scope is focused (as `Focus.autofocus`). A disabled anchor ignores it. |
 
 <a name="layout-modes"></a>

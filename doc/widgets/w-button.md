@@ -78,8 +78,8 @@ const WButton({
 | `loadingColor` | `Color?` | `null` | Colour of the spinner. Falls back to text colour, then auto-computes contrast via W3C luminance when no colour is resolvable. |
 | `states` | `Set<String>?` | `null` | Custom state prefixes (e.g., `{'error'}` for `error:` classes). |
 | `semanticLabel` | `String?` | `null` | Accessible name for icon-only controls. When set, excludes the child subtree from semantics so the label overrides any child text; prefer it for icon-only controls rather than buttons that already expose readable text. |
-| `focusNode` | `FocusNode?` | `null` | A focus node you own, to move focus to the button or read its focus. The button never disposes it, and swapping it between rebuilds moves the `focus:` styling to the new node. A disabled or loading button cannot take focus. Forwarded to `WAnchor`. |
-| `autofocus` | `bool` | `false` | Asks for focus when the button first mounts, only when nothing in the focus scope is focused already. Forwarded to `WAnchor`. |
+| `focusNode` | `FocusNode?` | `null` | A focus node you own, to move focus to the button or read its focus. The button never disposes it, and swapping it between rebuilds moves the `focus:` styling to the new node. A disabled or loading button cannot take focus, and the node keeps the `canRequestFocus` the button last gave it. Forwarded to `WAnchor`. |
+| `autofocus` | `bool` | `false` | Asks for focus when the button first mounts, only when nothing in the focus scope is focused already. A button that is disabled or loading at mount never takes focus, and does not ask again when loading ends. Forwarded to `WAnchor`. |
 
 <a name="layout-modes"></a>
 ## Layout Modes
@@ -180,7 +180,7 @@ A loading button stays a button for assistive technology, marked not enabled, an
 2. The rendered `loadingText`, when `loadingText` is set and `loadingWidget` is null.
 3. The child's own text. The child stays mounted but is not painted (it sits at zero opacity in a `Stack` beside the spinner), so the loading layout is unchanged.
 
-With a `loadingWidget`, `loadingText` is never rendered, so the child names the button. Because the child remains in the tree, a test finder such as `find.text('Save')` still matches it while loading.
+With a `loadingWidget`, `loadingText` is never rendered, so the child names the button; a `loadingWidget` that carries its own text joins that name, so pass a `semanticLabel` when the two would read badly together. Because the child remains in the tree, a test finder such as `find.text('Save')` still matches it while loading.
 
 > [!NOTE]
 > A loading button disables its anchor, so it cannot hold focus: a keyboard or D-pad user who has focus on the button when loading starts loses it.

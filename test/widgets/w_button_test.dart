@@ -174,6 +174,25 @@ void main() {
         }
       });
 
+      testWidgets(
+        'semanticLabel keeps the child unmounted while loading (#321)',
+        (tester) async {
+          await tester.pumpWidget(
+            wrapWithTheme(
+              WButton(
+                onTap: () {},
+                isLoading: true,
+                semanticLabel: 'Save now',
+                child: const Text('Save'),
+              ),
+            ),
+          );
+
+          expect(find.text('Save'), findsNothing);
+          expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        },
+      );
+
       testWidgets('loading button with semanticLabel lifts no tap action', (
         tester,
       ) async {

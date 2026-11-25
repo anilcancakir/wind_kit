@@ -124,14 +124,17 @@ class WButton extends StatelessWidget {
   ///
   /// The caller owns a given node: the button never disposes it, and swapping
   /// it for another between rebuilds moves the `focus:` styling to the new
-  /// node. A disabled or loading button cannot take focus. Forwarded to
+  /// node. A disabled or loading button cannot take focus, and the node keeps
+  /// the `canRequestFocus` the button last gave it. Forwarded to
   /// [WAnchor.focusNode].
   final FocusNode? focusNode;
 
   /// Whether the button asks for focus when it first mounts.
   ///
   /// Applies only when nothing in the focus scope is focused already, as with
-  /// [Focus.autofocus]. Forwarded to [WAnchor.autofocus].
+  /// [Focus.autofocus]. A button that is disabled or loading at mount never
+  /// takes focus, and does not ask again when loading ends. Forwarded to
+  /// [WAnchor.autofocus].
   final bool autofocus;
 
   /// Creates a new [WButton] instance.

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../theme/wind_theme_data.dart';
 import '../utils/wind_perf_counters.dart';
 import 'alias_expander.dart';
 import 'parsers/animation_parser.dart';
@@ -216,6 +217,7 @@ class WindParser {
       // The pure expander stays Flutter-free; the kDebugMode gate and the
       // warn-once dedup live here, in the caller.
       onWarn: kDebugMode ? (message) => _warnAlias(className, message) : null,
+      isColorClass: (bareClass) => _isColorClass(bareClass, windContext.theme),
     );
 
     if (kDebugMode) {
@@ -238,12 +240,58 @@ class WindParser {
     return _parseAndCache(expanded, windContext, cacheKey, baseStyle);
   }
 
-  /// Emits a debug-only cycle/cap warning, deduped per session.
+  /// The colour-bearing families (background, text, border, ring, shadow, svg
+  /// fill and stroke, gradient stops, text decoration) with their colour
+  /// grammar: a named colour with an optional shade, or an arbitrary `[#hex]`
+  /// of 3, 4, 6 or 8 digits.
   ///
-  /// Keyed by the offending [className] so a repeated render of the same input
-  /// logs once. The diagnostic [message] comes from the alias expander.
+  /// Keep this a superset of each family parser's own colour grammar: a colour
+  /// the parser reads but this misses would silently lose its alias `/N`.
+  static final RegExp _colorClassRegex = RegExp(
+    r'^(?:bg|text|border|ring|shadow|fill|stroke|from|via|to|decoration)-'
+    r'(?:(?<color>[a-zA-Z0-9]+)-?(?<shade>[0-9]*)'
+    r'|\[#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\])$',
+  );
+
+  /// Whether [bareClass], with its prefixes and own `/N` already stripped, is a
+  /// colour the parsers would paint (`bg-red-500`, `text-[#fff]`) rather than a
+  /// size, alignment or other token sharing the family prefix (`text-lg`).
+  ///
+  /// The alias expander asks this to decide which classes of an alias take the
+  /// `/N` of `<alias>/<N>`. A colour name without a shade reads as shade 500,
+  /// as the colour parsers do, and a `shadow-*` token naming a `theme.shadows`
+  /// preset is that preset, as in `ShadowParser`, and a `ring-*` token naming a
+  /// `theme.ringWidths` key is that width, as in `RingParser`, never a colour.
+  static bool _isColorClass(String bareClass, WindThemeData theme) {
+    final match = _colorClassRegex.firstMatch(bareClass);
+    if (match == null) return false;
+
+    final colorName = match.namedGroup('color');
+    if (colorName == null) return true;
+
+    if (bareClass.startsWith('shadow-') &&
+        theme.shadows.containsKey(bareClass.substring('shadow-'.length))) {
+      return false;
+    }
+
+    if (bareClass.startsWith('ring-') &&
+        theme.ringWidths.containsKey(bareClass.substring('ring-'.length))) {
+      return false;
+    }
+
+    final shadeText = match.namedGroup('shade')!;
+    final shade = shadeText.isEmpty ? 500 : int.tryParse(shadeText);
+    return shade != null && theme.isValidColor(colorName, shade: shade);
+  }
+
+  /// Emits a debug-only expander warning (cycle, depth cap, budget or an
+  /// ignored opacity), deduped per session.
+  ///
+  /// Keyed by the offending [className] and the [message] so a repeated render
+  /// of the same input logs once, while two different problems on one className
+  /// both surface. The diagnostic comes from the alias expander.
   static void _warnAlias(String className, String message) {
-    if (_warnedAliases.add('cycle:$className')) {
+    if (_warnedAliases.add('expand:$className:$message')) {
       debugPrint(message);
     }
   }

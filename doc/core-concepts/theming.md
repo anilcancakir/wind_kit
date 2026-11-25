@@ -265,9 +265,21 @@ WDiv(className: 'row-c bg-white dark:bg-gray-800')
 - Aliases are empty by default (`{}`). The feature is purely opt-in: a `WindThemeData` without an `aliases` key behaves identically to today.
 - If an alias key shadows a built-in token (for example, `'flex': 'flex flex-row'`), the alias wins and Wind emits a debug-mode warning so you can rename before shipping.
 - Expansion is bounded: a cyclic alias (`'a': 'a'`) and a deep or wide fan-out map terminate safely (the offending token is left unexpanded or the output is capped), so a misconfigured map never hangs rendering. Aliases are developer configuration, not a place to interpolate untrusted runtime strings.
+- An alias takes the colour opacity modifier: `<alias>/<N>` (`N` is digits or `[0.5]`) expands the alias and appends `/N` to every colour class of the expansion (`bg`, `text`, `border`, `ring`, `shadow`, `fill`, `stroke`, `decoration`, `from`, `via`, `to`), keeping each class's `dark:` and state prefixes. A non-colour class such as `px-4` is untouched, and an outer `/N` replaces an inner `/M`. An alias with no colour class expands normally, drops the `/N` and logs a debug-mode warning, never an error.
+
+```dart
+WindThemeData(
+  aliases: {
+    'bg-brand': 'bg-emerald-500 dark:bg-emerald-400',
+  },
+)
+
+// 'bg-brand/50' expands to 'bg-emerald-500/50 dark:bg-emerald-400/50'
+WDiv(className: 'bg-brand/50 p-4')
+```
 
 > [!NOTE]
-> Alias keys must be plain strings with no colons or slashes. A prefixed token still resolves: its prefix is peeled off, the bare body is matched against the map, and the prefix is re-applied to each produced token (`md:col` -> `md:flex md:flex-col`, `hover:row` -> `hover:flex hover:flex-row`).
+> Alias keys are bare: no prefix and no colon. A key containing `/` is matched whole before the `<alias>/<N>` reading, so it still wins. A prefixed token still resolves: its prefix is peeled off, the bare body is matched against the map, and the prefix is re-applied to each produced token (`md:col` -> `md:flex md:flex-col`, `hover:row` -> `hover:flex hover:flex-row`).
 
 <a name="quick-reference"></a>
 ## Quick Reference

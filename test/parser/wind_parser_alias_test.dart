@@ -8,12 +8,28 @@ import 'package:wind_kit/src/widgets/w_div.dart';
 
 /// Wraps [child] in a [WindTheme] carrying the supplied [aliases] so
 /// `WindParser.parse` resolves them through the real `parse()` path.
-Widget wrapWithAliases(Map<String, String> aliases, Widget child) {
+///
+/// [brightness] forces the theme brightness (system sync is switched off so it
+/// sticks); omitted, the theme keeps its defaults. [colors], [shadows] and
+/// [ringWidths] extend the default palette, shadow presets and ring widths.
+Widget wrapWithAliases(
+  Map<String, String> aliases,
+  Widget child, {
+  Brightness? brightness,
+  Map<String, MaterialColor>? colors,
+  Map<String, List<BoxShadow>>? shadows,
+  Map<String, double>? ringWidths,
+}) {
   return MaterialApp(
     home: WindTheme(
       data: WindThemeData(
         screens: const {'sm': 640, 'md': 768, 'lg': 1024, 'xl': 1280},
         aliases: aliases,
+        colors: colors,
+        shadows: shadows,
+        ringWidths: ringWidths,
+        brightness: brightness ?? Brightness.light,
+        syncWithSystem: brightness == null,
       ),
       child: Scaffold(body: child),
     ),
@@ -184,6 +200,246 @@ void main() {
       }
 
       expect(logs.any((l) => l.contains("alias 'a' forms a cycle")), isTrue);
+    });
+  });
+
+  group('WindParser alias opacity modifier', () {
+    /// Pumps a theme carrying [aliases] and parses each of [classNames] in
+    /// order through the real `parse()` path, returning the styles.
+    Future<List<WindStyle>> parseAll(
+      WidgetTester tester,
+      Map<String, String> aliases,
+      List<String> classNames, {
+      Brightness? brightness,
+      Set<String>? states,
+      Map<String, MaterialColor>? colors,
+      Map<String, List<BoxShadow>>? shadows,
+      Map<String, double>? ringWidths,
+    }) async {
+      final styles = <WindStyle>[];
+
+      await tester.pumpWidget(
+        wrapWithAliases(
+          aliases,
+          Builder(
+            builder: (context) {
+              for (final className in classNames) {
+                styles.add(
+                  WindParser.parse(className, context, states: states),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+          brightness: brightness,
+          colors: colors,
+          shadows: shadows,
+          ringWidths: ringWidths,
+        ),
+      );
+
+      return styles;
+    }
+
+    testWidgets('applies /N to the colour of a bg alias (#324)', (
+      tester,
+    ) async {
+      final styles = await parseAll(
+        tester,
+        const {'bg-brand': 'bg-[#336699]'},
+        const ['bg-brand/50'],
+      );
+
+      expect(styles.single.decoration?.color, const Color(0x80336699));
+    });
+
+    testWidgets('applies /N to the dark: peer in a dark theme (#324)', (
+      tester,
+    ) async {
+      const aliases = {'bg-brand': 'bg-[#336699] dark:bg-[#99ccff]'};
+
+      final dark = await parseAll(tester, aliases, const [
+        'bg-brand/50',
+      ], brightness: Brightness.dark);
+      expect(dark.single.decoration?.color, const Color(0x8099ccff));
+
+      WindParser.clearCache();
+
+      final light = await parseAll(tester, aliases, const [
+        'bg-brand/50',
+      ], brightness: Brightness.light);
+      expect(light.single.decoration?.color, const Color(0x80336699));
+    });
+
+    testWidgets('keeps a state prefix and applies /N to it (#324)', (
+      tester,
+    ) async {
+      final styles = await parseAll(
+        tester,
+        const {'bg-brand': 'bg-[#336699] dark:bg-[#99ccff]'},
+        const ['hover:bg-brand/50'],
+        states: const {'hover'},
+      );
+
+      expect(styles.single.decoration?.color, const Color(0x80336699));
+    });
+
+    testWidgets('leaves non-colour classes of the alias untouched (#324)', (
+      tester,
+    ) async {
+      final styles = await parseAll(
+        tester,
+        const {'label': 'text-lg text-blue-500'},
+        const ['label/50'],
+      );
+
+      final style = styles.single;
+      expect(style.fontSize, WindThemeData().fontSizes['lg']);
+      expect(style.color, isNotNull);
+      expect(style.color!.a, closeTo(0x80 / 255, 0.001));
+      expect(style.heightLine, isNull);
+    });
+
+    testWidgets('caches each /N expansion under its own key (#324)', (
+      tester,
+    ) async {
+      final styles = await parseAll(
+        tester,
+        const {'bg-brand': 'bg-[#336699]'},
+        const ['bg-brand/50', 'bg-brand/20'],
+      );
+
+      expect(styles[0].decoration?.color, isNot(styles[1].decoration?.color));
+      expect(WindParser.cacheSize, 2);
+
+      final plain = await parseAll(
+        tester,
+        const {'bg-brand': 'bg-[#336699]'},
+        const ['bg-brand'],
+      );
+
+      expect(plain.single.decoration?.color, const Color(0xFF336699));
+    });
+
+    testWidgets('applies /N to a ring colour on a theme shade of 1000 (#324)', (
+      tester,
+    ) async {
+      final styles = await parseAll(
+        tester,
+        const {'focus-ring': 'ring-brand-1000', 'bad-ring': 'ring-brand-1100'},
+        const ['focus-ring/50', 'bad-ring/50'],
+        colors: {
+          'brand': const MaterialColor(0xFF111111, {
+            500: Color(0xFF111111),
+            1000: Color(0xFF222222),
+          }),
+        },
+      );
+
+      expect(styles[0].ringColor, const Color(0x80222222));
+      // A shade the theme does not define stays unclassified, so it gains
+      // nothing and the ring colour never resolves.
+      expect(styles[1].ringColor, isNull);
+    });
+
+    testWidgets('keeps a shadow preset that shares a colour name under /N '
+        '(#324)', (tester) async {
+      const preset = [BoxShadow(color: Color(0x33000000), blurRadius: 4)];
+
+      final styles = await parseAll(
+        tester,
+        const {'panel': 'shadow-red bg-white', 'glow': 'shadow-red-500'},
+        const ['panel/50', 'glow/50'],
+        shadows: const {'red': preset},
+      );
+
+      expect(styles[0].boxShadow, preset);
+      expect(styles[0].decoration?.color, const Color(0x80FFFFFF));
+      expect(styles[1].shadowColor?.a, closeTo(0x80 / 255, 0.001));
+    });
+
+    testWidgets(
+      'keeps a ring width that shares a colour name under /N (#324)',
+      (tester) async {
+        final styles = await parseAll(
+          tester,
+          const {'halo': 'ring-red', 'plain': 'ring-red-500'},
+          const ['halo/50', 'plain/50'],
+          ringWidths: const {'red': 6},
+        );
+
+        expect(styles[0].ringWidth, 6);
+        expect(styles[1].ringColor?.a, closeTo(0x80 / 255, 0.001));
+      },
+    );
+
+    testWidgets('keeps a ring width named like a four-digit shade under /N '
+        '(#324)', (tester) async {
+      final styles = await parseAll(
+        tester,
+        const {'halo': 'ring-brand-1000'},
+        const ['halo/50'],
+        colors: {
+          'brand': const MaterialColor(0xFF111111, {
+            500: Color(0xFF111111),
+            1000: Color(0xFF222222),
+          }),
+        },
+        ringWidths: const {'brand-1000': 6},
+      );
+
+      expect(styles.single.ringWidth, 6);
+    });
+
+    testWidgets('strips a bracketed inner opacity before applying /N (#324)', (
+      tester,
+    ) async {
+      final styles = await parseAll(
+        tester,
+        const {'panel': 'bg-red-500/[-0.5]'},
+        const ['panel/50'],
+      );
+
+      expect(styles.single.decoration?.color?.a, closeTo(0x80 / 255, 0.001));
+    });
+
+    testWidgets('applies /N to a decoration colour alias (#324)', (
+      tester,
+    ) async {
+      final styles = await parseAll(
+        tester,
+        const {'link-brand': 'underline decoration-[#336699]'},
+        const ['link-brand/50'],
+      );
+
+      expect(styles.single.textDecorationColor, const Color(0x80336699));
+    });
+
+    testWidgets('ignores /N on an alias with no colour class (#324)', (
+      tester,
+    ) async {
+      final logs = <String>[];
+      final original = debugPrint;
+      debugPrint = (message, {wrapWidth}) => logs.add(message ?? '');
+
+      late final List<WindStyle> styles;
+      try {
+        styles = await parseAll(
+          tester,
+          const {'card': 'p-4 rounded-lg'},
+          const ['card/50'],
+        );
+      } finally {
+        debugPrint = original;
+      }
+
+      // The alias still expands (padding is set) and the `/50` is dropped
+      // with a diagnostic instead of changing any class.
+      expect(styles.single.padding, const EdgeInsets.all(16));
+      expect(
+        logs.where((l) => l.contains("alias 'card' has no colour class")),
+        hasLength(1),
+      );
     });
   });
 }

@@ -18,6 +18,10 @@ const int _maxExpansionDepth = 8;
 /// the function never throws.
 const int _maxOutputTokens = 256;
 
+/// The two `/N` opacity suffix forms the colour parsers read: an integer
+/// percentage (`50`) or a bracketed fraction (`[0.5]`).
+final RegExp _opacitySuffix = RegExp(r'^(?:[0-9]+|\[[0-9]*\.?[0-9]+\])$');
+
 /// Expands user-defined className aliases into their underlying tokens.
 ///
 /// This is a PURE function: a className string plus an alias map go in, an
@@ -42,6 +46,22 @@ const int _maxOutputTokens = 256;
 /// - Token order and duplicates are preserved (no dedup); the parser is
 ///   last-class-wins, so dropping a trailing duplicate would change semantics.
 ///   Two independent occurrences of the same alias both expand.
+///
+/// ### Opacity modifier
+///
+/// With [isColorClass] set, a token `<alias>/<N>` (N an integer or a bracketed
+/// fraction such as `[0.5]`) expands the alias and appends `/N` to every colour
+/// class it produces, prefixed peers and nested aliases included
+/// (`bg-brand/50` over `{'bg-brand': 'bg-red-500 dark:bg-red-400'}` ->
+/// `bg-red-500/50 dark:bg-red-400/50`). [isColorClass]
+/// receives a class with its prefixes and its own `/M` stripped (`bg-red-500`)
+/// and decides which produced classes are colours; other classes pass through
+/// untouched. The outermost `/N` replaces any inner `/M`. An exact key that
+/// itself contains `/` wins over this reading. When no produced class is a
+/// colour the alias still expands, the `/N` is dropped and [onWarn] fires.
+/// Without [isColorClass] an `<alias>/<N>` token is left verbatim. An alias key
+/// that equals the stem of a built-in `/N` token (`text-lg` of `text-lg/6`)
+/// takes that token over, as an alias key already shadows the bare built-in.
 ///
 /// ### Termination
 ///
@@ -70,6 +90,7 @@ String expandAliases(
   String className,
   Map<String, String> aliases, {
   void Function(String message)? onWarn,
+  bool Function(String bareClass)? isColorClass,
 }) {
   // Fast path: no aliases configured, nothing to expand.
   if (aliases.isEmpty) {
@@ -81,8 +102,11 @@ String expandAliases(
   // whole recursion via this closure, which is why expansion is a nested
   // function rather than a top-level one.
   var budgetWarned = false;
+  // Leaf tokens that received an alias opacity so far; an alias compares it
+  // before and after its expansion to tell whether its `/N` landed anywhere.
+  var opacityApplied = 0;
 
-  void expand(String token, Set<String> chain, int depth) {
+  void expand(String token, Set<String> chain, int depth, String? opacity) {
     // Output budget: stop once the total token count is reached so an acyclic
     // fan-out map cannot grow the output without bound. Warn once.
     if (out.length >= _maxOutputTokens) {
@@ -106,18 +130,42 @@ String expandAliases(
     final String prefix = colon == -1 ? '' : token.substring(0, colon + 1);
     final String body = colon == -1 ? token : token.substring(colon + 1);
 
-    final replacement = aliases[body];
+    // Exact lookup first, so a key that itself contains '/' wins. Only on a
+    // miss, and only when colour classes can be told apart, is the body read
+    // as `<alias>/<N>`.
+    var key = body;
+    String? ownOpacity;
+    var replacement = aliases[body];
+    if (replacement == null && isColorClass != null) {
+      final split = _splitOpacity(body);
+      final aliased = split.opacity == null ? null : aliases[split.base];
+      if (aliased != null) {
+        key = split.base;
+        ownOpacity = split.opacity;
+        replacement = aliased;
+      }
+    }
 
     // Not an alias key (unknown bare token, or a prefixed token whose body is
-    // not an alias key): keep the ORIGINAL token verbatim.
+    // not an alias key): keep the ORIGINAL token verbatim, unless an enclosing
+    // alias carries an opacity and this is a colour class, which then takes
+    // that opacity in place of its own.
     if (replacement == null) {
+      if (opacity != null && isColorClass != null) {
+        final base = _stripLeafOpacity(body);
+        if (isColorClass(base)) {
+          opacityApplied++;
+          out.add('$prefix$base/$opacity');
+          return;
+        }
+      }
       out.add(token);
       return;
     }
 
     // Cycle guard: this key is already on the current resolution chain.
-    if (chain.contains(body)) {
-      onWarn?.call("Wind alias '$body' forms a cycle; left unexpanded.");
+    if (chain.contains(key)) {
+      onWarn?.call("Wind alias '$key' forms a cycle; left unexpanded.");
       out.add(token);
       return;
     }
@@ -125,27 +173,88 @@ String expandAliases(
     // Cap guard: chain deeper than the backstop allows.
     if (depth >= _maxExpansionDepth) {
       onWarn?.call(
-        "Wind alias '$body' exceeds the $_maxExpansionDepth-level "
+        "Wind alias '$key' exceeds the $_maxExpansionDepth-level "
         'expansion cap; left unexpanded.',
       );
       out.add(token);
       return;
     }
 
-    final nextChain = {...chain, body};
+    // The outermost opacity wins over this token's own `/N`.
+    final effectiveOpacity = opacity ?? ownOpacity;
+    final appliedBefore = opacityApplied;
+    final nextChain = {...chain, key};
     for (final inner in _tokenize(replacement)) {
       // Re-apply the outer prefix (if any) to each produced token. Prefix order
       // is irrelevant to the parser, so hover: over a value's dark: becomes
       // hover:dark:... and still resolves.
-      expand(prefix.isEmpty ? inner : '$prefix$inner', nextChain, depth + 1);
+      expand(
+        prefix.isEmpty ? inner : '$prefix$inner',
+        nextChain,
+        depth + 1,
+        effectiveOpacity,
+      );
+    }
+
+    // Warn where the opacity originated: a nested alias handed an outer `/N`
+    // is not the token the user wrote it on.
+    if (opacity == null &&
+        ownOpacity != null &&
+        opacityApplied == appliedBefore) {
+      onWarn?.call(
+        "Wind alias '$key' has no colour class; its '/$ownOpacity' opacity "
+        'was ignored.',
+      );
     }
   }
 
   for (final token in _tokenize(className)) {
-    expand(token, <String>{}, 0);
+    expand(token, <String>{}, 0, null);
   }
 
   return out.join(' ');
+}
+
+/// Splits a bare class into its base and a valid `/N` opacity suffix.
+///
+/// A class without a suffix, or whose text after the last '/' is not one of
+/// the two opacity forms (`w-1/2` keeps `2`, but `bg-a/abc` does not match),
+/// returns the class unchanged as the base and a null opacity.
+({String base, String? opacity}) _splitOpacity(String bareClass) {
+  final slash = bareClass.lastIndexOf('/');
+  if (slash <= 0) {
+    return (base: bareClass, opacity: null);
+  }
+
+  final suffix = bareClass.substring(slash + 1);
+  if (!_opacitySuffix.hasMatch(suffix)) {
+    return (base: bareClass, opacity: null);
+  }
+
+  return (base: bareClass.substring(0, slash), opacity: suffix);
+}
+
+/// Strips the `/M` opacity the colour parsers would read off a produced class.
+///
+/// Wider than [_splitOpacity], which gates the alias token the user wrote: the
+/// colour parsers take any integer (`/-5`) and any bracketed number
+/// (`/[-0.5]`, `/[50]`) through `parseColorOpacity`, so an inner suffix that
+/// narrower reading missed would survive the replacement and be appended to.
+/// The base must hold no further '/', as `parseColorOpacity` reads exactly one.
+String _stripLeafOpacity(String bareClass) {
+  final slash = bareClass.lastIndexOf('/');
+  if (slash <= 0) {
+    return bareClass;
+  }
+
+  final base = bareClass.substring(0, slash);
+  final suffix = bareClass.substring(slash + 1);
+  final isBracketed = suffix.startsWith('[') && suffix.endsWith(']');
+  final isNumber = isBracketed
+      ? double.tryParse(suffix.substring(1, suffix.length - 1)) != null
+      : int.tryParse(suffix) != null;
+
+  return isNumber && !base.contains('/') ? base : bareClass;
 }
 
 /// Splits a className string on whitespace, dropping empty fragments.

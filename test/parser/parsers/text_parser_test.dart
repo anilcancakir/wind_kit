@@ -192,6 +192,60 @@ void main() {
         expect(updatedStyles.fontWeight, context.theme.fontWeights['bold']);
       });
 
+      test('consumes an earlier named weight instead of reading it as a '
+          'family (#317)', () {
+        final updatedStyles = parser.parse(WindStyle(), [
+          'font-medium',
+          'font-semibold',
+        ], context);
+
+        expect(updatedStyles.fontWeight, FontWeight.w600);
+        expect(updatedStyles.fontFamily, isNull);
+      });
+
+      test('consumes an earlier arbitrary weight and keeps the last named '
+          'weight (#317)', () {
+        final updatedStyles = parser.parse(WindStyle(), [
+          'font-[600]',
+          'font-semibold',
+        ], context);
+
+        expect(updatedStyles.fontWeight, FontWeight.w600);
+        expect(updatedStyles.fontFamily, isNull);
+      });
+
+      test('consumes an earlier named weight and keeps the last arbitrary '
+          'weight (#317)', () {
+        final updatedStyles = parser.parse(WindStyle(), [
+          'font-semibold',
+          'font-[500]',
+        ], context);
+
+        expect(updatedStyles.fontWeight, FontWeight.w500);
+        expect(updatedStyles.fontFamily, isNull);
+      });
+
+      test('keeps the family when two weights follow it (#317)', () {
+        final updatedStyles = parser.parse(WindStyle(), [
+          'font-sans',
+          'font-medium',
+          'font-semibold',
+        ], context);
+
+        expect(updatedStyles.fontWeight, FontWeight.w600);
+        expect(updatedStyles.fontFamily, context.theme.fontFamilies['sans']);
+      });
+
+      test('treats a non-weight name as a family beside a weight (#317)', () {
+        final updatedStyles = parser.parse(WindStyle(), [
+          'font-display',
+          'font-bold',
+        ], context);
+
+        expect(updatedStyles.fontWeight, FontWeight.w700);
+        expect(updatedStyles.fontFamily, 'display');
+      });
+
       test('parses italic font style class', () {
         final styles = WindStyle();
         final classes = ['italic'];
@@ -257,6 +311,20 @@ void main() {
         final updatedStyles = parser.parse(styles, classes, context);
 
         expect(updatedStyles.textDecorationColor, const Color(0xFF654321));
+      });
+
+      test('applies an opacity suffix to a decoration color (#324)', () {
+        final styles = WindStyle();
+        final classes = ['decoration-red-500/50', 'decoration-[#336699]/[0.5]'];
+
+        expect(
+          parser.parse(styles, [classes[0]], context).textDecorationColor,
+          applyOpacity(context.theme.getColor('red', 500)!, 0.5),
+        );
+        expect(
+          parser.parse(styles, [classes[1]], context).textDecorationColor,
+          const Color(0x80336699),
+        );
       });
 
       test('last class wins for conflicting decoration color classes', () {

@@ -18,7 +18,8 @@ import 'wind_parser_interface.dart';
 /// - **Font Family:** `font-{sans|serif|mono}`, `font-[{family}]`
 /// - **Decoration:** `underline`, `overline`, `line-through`, `no-underline`
 /// - **Decoration Style:** `decoration-{solid|double|dotted|dashed|wavy}`
-/// - **Decoration Color:** `decoration-{color}-{shade}`, `decoration-[#hex]`
+/// - **Decoration Color:** `decoration-{color}-{shade}`, `decoration-[#hex]`,
+///   `decoration-{color}-{shade}/{opacity}`
 /// - **Decoration Thickness:** `decoration-{value}`, `decoration-[{value}]`
 /// - **Transform:** `uppercase`, `lowercase`, `capitalize`, `normal-case`
 /// - **Letter Spacing:** `tracking-{tighter|tight|normal|wide|wider|widest}` (em),
@@ -71,9 +72,9 @@ class TextParser implements WindParserInterface {
   ///   `font-semibold`, etc. As a result, typos in weight classes (e.g. `font-blod`)
   ///   would match this regex and be treated as a font family rather than being
   ///   rejected.
-  /// - To keep this behavior predictable, the font-weight parser is expected to run
-  ///   before the font-family parser in the main parsing logic so that valid
-  ///   weight classes are consumed by the weight parser and only non-weights fall
+  /// - To keep this behavior predictable, the font-weight step runs before the
+  ///   font-family step and consumes every valid weight class, including one
+  ///   that a later weight has already overridden, so only non-weights fall
   ///   through to this regex.
   /// If the order of font-related checks is changed, ensure that font-weight
   /// parsing still occurs before font-family parsing to preserve this behavior.
@@ -86,7 +87,8 @@ class TextParser implements WindParserInterface {
     r'^(?<decoration>underline|overline|line-through|no-underline)$',
   );
 
-  /// Regex for decoration color: `decoration-red-500`
+  /// Regex for decoration color: `decoration-red-500`, matched after
+  /// `parseColorOpacity` has stripped any `/N` suffix.
   ///
   /// Same hex lengths as [_textColorRegex], for the same reason.
   static final RegExp _textDecorationColorRegex = RegExp(
@@ -293,30 +295,28 @@ class TextParser implements WindParserInterface {
       }
 
       // 4. Font Weight
-      if (fontWeight == null) {
-        final match = _fontWeightRegex.firstMatch(className);
-        if (match != null) {
-          if (match.namedGroup('arbitrary') != null) {
-            final val = match.namedGroup('arbitrary')!;
-            int? weightValue = int.tryParse(val);
-            if (weightValue != null) {
-              final index = (weightValue ~/ 100) - 1;
-              if (index >= 0 && index <= 8) {
-                fontWeight = FontWeight.values[index];
-                continue;
-              }
-            }
-          } else {
-            // Important: Only continue if a valid weight is found.
-            // Classes like 'font-display' match this regex but are not
-            // valid weights, so they should fall through to the font-family
-            // parser. See _fontFamilyRegex documentation for details.
-            final parsedWeight = theme.fontWeights[match.namedGroup('weight')];
-            if (parsedWeight != null) {
-              fontWeight = parsedWeight;
-              continue;
-            }
-          }
+      // Not gated on an unset weight: an earlier weight that lost to a later
+      // one must still be consumed here, or it falls through to the
+      // font-family step and becomes `fontFamily`.
+      final weightMatch = _fontWeightRegex.firstMatch(className);
+      if (weightMatch != null) {
+        final FontWeight? parsedWeight;
+        final arbitraryWeight = weightMatch.namedGroup('arbitrary');
+        if (arbitraryWeight != null) {
+          final index = ((int.tryParse(arbitraryWeight) ?? 0) ~/ 100) - 1;
+          parsedWeight = index >= 0 && index <= 8
+              ? FontWeight.values[index]
+              : null;
+        } else {
+          parsedWeight = theme.fontWeights[weightMatch.namedGroup('weight')];
+        }
+
+        // Only a valid weight continues. Classes like 'font-display' match the
+        // regex but are not weights, so they fall through to the font-family
+        // step. See _fontFamilyRegex documentation for details.
+        if (parsedWeight != null) {
+          fontWeight ??= parsedWeight;
+          continue;
         }
       }
 
@@ -342,7 +342,10 @@ class TextParser implements WindParserInterface {
 
       // 7. Decoration Color
       if (textDecorationColor == null) {
-        final match = _textDecorationColorRegex.firstMatch(className);
+        final opacityData = parseColorOpacity(className);
+        final match = _textDecorationColorRegex.firstMatch(
+          opacityData.colorPart,
+        );
         if (match != null) {
           Color? parsedColor;
 
@@ -356,6 +359,9 @@ class TextParser implements WindParserInterface {
           }
 
           if (parsedColor != null) {
+            if (opacityData.opacity != null) {
+              parsedColor = applyOpacity(parsedColor, opacityData.opacity!);
+            }
             textDecorationColor = parsedColor;
             continue;
           }

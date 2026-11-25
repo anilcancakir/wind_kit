@@ -48,7 +48,7 @@ Inline colour escape hatches that bypass the cache key:
 - `WText(foregroundColor: Color)` overrides any `text-*` / `dark:text-*`.
 - `WIcon(foregroundColor: Color)` overrides any `text-*` / `dark:text-*`.
 
-`WindThemeData.aliases` shorthand expansion: if the active theme has `aliases` set, `WindParser.parse` expands matching bare tokens to their full className strings before the parser pipeline runs. Aliases are not tokens themselves and do not appear in the catalogue below; they are transparent to every parser. See `references/theme.md` and `references/tailwind-divergence.md` for details.
+`WindThemeData.aliases` shorthand expansion: if the active theme has `aliases` set, `WindParser.parse` expands matching bare tokens to their full className strings before the parser pipeline runs. Aliases are not tokens themselves and do not appear in the catalogue below; they are transparent to every parser. `<alias>/N` (for example `bg-brand/50`) appends `/N` to the colour classes of the expansion, `dark:` peers included, and leaves non-colour classes untouched. See `references/theme.md` and `references/tailwind-divergence.md` for details.
 
 ---
 
@@ -310,11 +310,11 @@ Order: covered in §2.
 
 **Alignment**: `text-left` `text-center` `text-right` `text-justify` `text-start` `text-end` (last two are RTL-aware via `Directionality`).
 
-**Weight**: `font-thin` (100) `font-extralight` (200) `font-light` (300) `font-normal` (400) `font-medium` (500) `font-semibold` (600) `font-bold` (700) `font-extrabold` (800) `font-black` (900). Arbitrary: `font-[100]` through `font-[900]`.
+**Weight**: `font-thin` (100) `font-extralight` (200) `font-light` (300) `font-normal` (400) `font-medium` (500) `font-semibold` (600) `font-bold` (700) `font-extrabold` (800) `font-black` (900). Arbitrary: `font-[100]` through `font-[900]`. A second weight class is never read as a font family; the last weight wins.
 
 **Style**: `italic` / `not-italic`.
 
-**Decoration**: `underline` / `overline` / `line-through` / `no-underline`. Colour: `decoration-{family}-{shade}` / `decoration-[#hex]`. Style: `decoration-solid` / `-double` / `-dotted` / `-dashed` / `-wavy`. Thickness: `decoration-N` / `decoration-[3px]`.
+**Decoration**: `underline` / `overline` / `line-through` / `no-underline`. Colour: `decoration-{family}-{shade}` / `decoration-[#hex]`, each with an optional opacity suffix (`decoration-red-500/50`). Style: `decoration-solid` / `-double` / `-dotted` / `-dashed` / `-wavy`. Thickness: `decoration-N` / `decoration-[3px]`.
 
 **Transform**: `uppercase` / `lowercase` / `capitalize` / `normal-case`. `capitalize` raises the first letter of every word and leaves the rest as typed (`the HTTP client` -> `The HTTP Client`), matching CSS `text-transform: capitalize`. A word runs through letters, digits, underscores and apostrophes, plus any combining mark or invisible format character attached to them (so decomposed NFD text does not capitalise mid-word, while `U+200B` still breaks the word), and anything else opens a new one: `"quoted words"` -> `"Quoted Words"`, `well-known` -> `Well-Known`, `read/write` -> `Read/Write`, while `3rd party` -> `3rd Party` and `l'orange` -> `L'orange` keep theirs. Casing follows the ambient locale (`Localizations.maybeLocaleOf`), so Turkish and Azerbaijani get the dotted/dotless `i` right: under `Locale('tr')`, `uppercase` on `izleyiciler` is `İZLEYİCİLER` and on `kullanılan` is `KULLANILAN`. With no `Localizations` ancestor (a bare widget test, or a subtree outside a `MaterialApp`) it falls back to Dart's locale-independent casing.
 

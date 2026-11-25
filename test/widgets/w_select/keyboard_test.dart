@@ -547,6 +547,26 @@ void main() {
     );
 
     testWidgets(
+      'highlights a hovered row without waiting for an unrelated frame (#322)',
+      (tester) async {
+        final Map<String, bool> seen = {};
+        await tester.pumpWidget(wrapWithTheme(_select(seen: seen)));
+
+        await _tapOpen(tester);
+        final TestGesture gesture = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        await gesture.addPointer(location: Offset.zero);
+        addTearDown(gesture.removePointer);
+        await gesture.moveTo(tester.getCenter(find.text('Cherry')));
+        // Only frames the hover itself asked for are pumped.
+        await tester.pumpAndSettle();
+
+        expect(_highlighted(seen), ['Cherry']);
+      },
+    );
+
+    testWidgets(
       'keeps the keyboard highlight when rows scroll under a resting pointer (#322)',
       (tester) async {
         final Map<String, bool> seen = {};
@@ -573,8 +593,6 @@ void main() {
         await gesture.addPointer(location: Offset.zero);
         addTearDown(gesture.removePointer);
         await gesture.moveTo(tester.getCenter(find.text('Option 2')));
-        // The hover lands in a post-frame callback, which needs a frame.
-        tester.binding.scheduleFrame();
         await tester.pumpAndSettle();
         expect(_highlighted(seen), ['Option 2']);
 

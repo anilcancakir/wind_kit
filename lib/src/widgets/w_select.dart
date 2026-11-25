@@ -889,13 +889,17 @@ class _WSelectState<T> extends State<WSelect<T>> {
     });
   }
 
-  /// Deferred setState for hovered index to avoid mouse_tracker conflicts
+  /// Deferred setState for hovered index to avoid mouse_tracker conflicts.
+  ///
+  /// A pointer event schedules no frame of its own, so the callback asks for
+  /// one; without it the highlight waited for whatever drew next.
   void _setHoveredIndex(int value) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _hoveredIndex != value) {
         setState(() => _hoveredIndex = value);
       }
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   /// A row entered or left the pointer. While the keyboard owns the highlight

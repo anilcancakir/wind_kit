@@ -284,6 +284,16 @@ void main() {
       );
     });
 
+    test('replaces a bracketed inner opacity the colour parsers accept '
+        '(#324)', () {
+      expect(
+        expandAliases('bg-brand/50', const {
+          'bg-brand': 'bg-red-500/[-0.5]',
+        }, isColorClass: isColorClass),
+        'bg-red-500/50',
+      );
+    });
+
     test('leaves a token whose suffix is not an opacity verbatim (#324)', () {
       expect(
         expandAliases('bg-brand/abc', const {

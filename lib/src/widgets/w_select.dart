@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../parser/wind_parser.dart';
@@ -69,6 +70,10 @@ typedef LoadingBuilder = Widget Function(BuildContext context);
 /// - **Remote Data:** Async search (`onSearch`) and Pagination (`onLoadMore`)
 /// - **Tagging:** Create new options on the fly (`onCreateOption`)
 /// - **Styling:** `className` (trigger) and `menuClassName` (dropdown)
+/// - **Keyboard:** Enter, Space or ArrowDown opens the menu; arrows move the
+///   highlight over enabled options (no wrap) and Home/End jump to the ends,
+///   Enter or Space selects and Escape closes. A searchable menu leaves Space
+///   and Home/End to its search field.
 ///
 /// ### Example Usage:
 ///
@@ -340,7 +345,19 @@ class _WSelectState<T> extends State<WSelect<T>> {
   /// screen".
   int _listEpoch = 0;
   bool _isCreating = false;
+
+  /// The highlighted row: the hovered one, or the one the keyboard moved to.
   int _hoveredIndex = -1;
+
+  /// Whether a keyboard move still has to scroll its row into view.
+  ///
+  /// While raised, the row at [_revealIndex] is wrapped in a [Builder] that
+  /// hands its context to [_revealContext], which is how the post-frame
+  /// reveal finds the row's render object without a key per row.
+  bool _revealPending = false;
+  bool _revealDownward = true;
+  int _revealIndex = -1;
+  BuildContext? _revealContext;
 
   @override
   void initState() {
@@ -370,6 +387,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
       // one. The open branch lowers it for the same reason.
       _listEpoch++;
       _isSearching = false;
+      _hoveredIndex = -1;
       if (_searchQuery.isNotEmpty) {
         _filterOptions(_searchQuery);
       }
@@ -432,7 +450,12 @@ class _WSelectState<T> extends State<WSelect<T>> {
     }
   }
 
-  void _toggleMenu() {
+  /// Opens or closes the menu.
+  ///
+  /// A [keyboard] open starts with the highlight on the selected option (the
+  /// first enabled one when nothing is selected); a pointer open leaves the
+  /// highlight to the hover.
+  void _toggleMenu({bool keyboard = false}) {
     if (widget.disabled) return;
 
     if (!_isOpen) {
@@ -457,7 +480,8 @@ class _WSelectState<T> extends State<WSelect<T>> {
       if (_isOpen) {
         _searchQuery = '';
         _filteredOptions = widget.options;
-        _hoveredIndex = -1;
+        _hoveredIndex = keyboard ? _initialHighlight() : -1;
+        _revealPending = false;
         // The query and the list are back to their defaults, so the search
         // that was in flight against the old query no longer owns this menu.
         // Leaving the flag set stranded the reopened menu on a spinner:
@@ -486,10 +510,24 @@ class _WSelectState<T> extends State<WSelect<T>> {
     // now, so a caller's pagination cursor is ahead of what the reader can
     // see, which is what this call is telling it.
     if (isOpening) widget.onOpen?.call();
+
+    // A pointer open leaves focus wherever the tap put it, and the keys only
+    // reach this widget from its trigger. A searchable menu hands focus to its
+    // own search field instead, and the field's autofocus only wins when
+    // nothing in the scope holds focus, so the trigger lets go of it first.
+    if (!isOpening) return;
+    if (widget.searchable) {
+      _focusNode.unfocus();
+    } else {
+      _focusNode.requestFocus();
+    }
   }
 
-  void _closeMenu() {
+  /// Closes the menu. [restoreFocus] hands focus back to the trigger first,
+  /// which a keyboard close needs and a tap outside must not do.
+  void _closeMenu({bool restoreFocus = false}) {
     if (_isOpen) {
+      if (restoreFocus) _focusNode.requestFocus();
       setState(() {
         _isOpen = false;
         _overlayController.hide();
@@ -497,15 +535,167 @@ class _WSelectState<T> extends State<WSelect<T>> {
     }
   }
 
-  void _selectOption(SelectOption<T> option) {
+  void _selectOption(SelectOption<T> option, {bool restoreFocus = false}) {
     if (option.disabled) return;
 
     if (widget.isMulti) {
       _toggleMultiSelection(option);
     } else {
       widget.onChange?.call(option.value);
-      _closeMenu();
+      _closeMenu(restoreFocus: restoreFocus);
     }
+  }
+
+  /// The row a keyboard open highlights: the first enabled option that is
+  /// selected, else the first enabled option, else -1.
+  int _initialHighlight() {
+    final int firstEnabled = _enabledIndexFrom(-1, 1);
+    final int selected = widget.options.indexWhere(
+      (SelectOption<T> option) =>
+          !option.disabled && _isValueSelected(option.value),
+    );
+
+    return selected != -1 ? selected : firstEnabled;
+  }
+
+  /// The nearest enabled index after [from] in direction [step] (1 or -1) in
+  /// the visible list, or -1 when there is none.
+  int _enabledIndexFrom(int from, int step) {
+    final List<SelectOption<T>> options = _isOpen
+        ? _filteredOptions
+        : widget.options;
+
+    for (int i = from + step; i >= 0 && i < options.length; i += step) {
+      if (!options[i].disabled) return i;
+    }
+
+    return -1;
+  }
+
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    if (widget.disabled) return KeyEventResult.ignored;
+
+    final LogicalKeyboardKey key = event.logicalKey;
+    final bool isArrow =
+        key == LogicalKeyboardKey.arrowDown ||
+        key == LogicalKeyboardKey.arrowUp;
+    if (event is! KeyDownEvent && !(isArrow && event is KeyRepeatEvent)) {
+      return KeyEventResult.ignored;
+    }
+
+    return _isOpen ? _onOpenKey(key) : _onClosedKey(key);
+  }
+
+  KeyEventResult _onClosedKey(LogicalKeyboardKey key) {
+    final bool opens =
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter ||
+        key == LogicalKeyboardKey.space ||
+        key == LogicalKeyboardKey.arrowDown;
+    if (!opens) return KeyEventResult.ignored;
+
+    _toggleMenu(keyboard: true);
+
+    return KeyEventResult.handled;
+  }
+
+  KeyEventResult _onOpenKey(LogicalKeyboardKey key) {
+    if (key == LogicalKeyboardKey.arrowDown) {
+      _moveHighlight(
+        _enabledIndexFrom(_hoveredIndex < 0 ? -1 : _hoveredIndex, 1),
+      );
+    } else if (key == LogicalKeyboardKey.arrowUp) {
+      _moveHighlight(
+        _enabledIndexFrom(
+          _hoveredIndex < 0 ? _filteredOptions.length : _hoveredIndex,
+          -1,
+        ),
+      );
+    } else if (key == LogicalKeyboardKey.escape) {
+      _closeMenu(restoreFocus: true);
+    } else if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter) {
+      _selectHighlighted();
+    } else if (widget.searchable) {
+      // Space types a space and Home/End move the caret in the search field.
+      return KeyEventResult.ignored;
+    } else if (key == LogicalKeyboardKey.space) {
+      _selectHighlighted();
+    } else if (key == LogicalKeyboardKey.home) {
+      _moveHighlight(_enabledIndexFrom(-1, 1));
+    } else if (key == LogicalKeyboardKey.end) {
+      _moveHighlight(_enabledIndexFrom(_filteredOptions.length, -1));
+    } else {
+      return KeyEventResult.ignored;
+    }
+
+    return KeyEventResult.handled;
+  }
+
+  void _selectHighlighted() {
+    if (_hoveredIndex < 0 || _hoveredIndex >= _filteredOptions.length) return;
+
+    _selectOption(_filteredOptions[_hoveredIndex], restoreFocus: true);
+  }
+
+  /// Moves the highlight to [index] and scrolls its row into view. A -1 (no
+  /// enabled option in that direction) leaves the highlight where it is, so it
+  /// stops at the ends rather than wrapping.
+  void _moveHighlight(int index) {
+    if (index == -1 || index == _hoveredIndex) return;
+
+    setState(() {
+      _revealDownward = index > _hoveredIndex;
+      _hoveredIndex = index;
+      _revealIndex = index;
+      _revealContext = null;
+      _revealPending = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _revealHighlight());
+  }
+
+  /// Scrolls the highlighted row into view once the frame that built it ran.
+  ///
+  /// A row the list has not built yet has no context to reveal, so the list
+  /// jumps to a proportional offset to get it built and the reveal runs once
+  /// more on the next frame.
+  void _revealHighlight({bool retry = true}) {
+    if (!mounted || !_revealPending) return;
+
+    final BuildContext? row = _revealContext;
+    if (row != null && row.mounted) {
+      Scrollable.ensureVisible(
+        row,
+        duration: Duration.zero,
+        alignmentPolicy: _revealDownward
+            ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd
+            : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+      );
+      _revealPending = false;
+      _revealContext = null;
+
+      return;
+    }
+
+    final int count = _filteredOptions.length;
+    if (!retry || count < 2 || !_scrollController.hasClients) {
+      _revealPending = false;
+
+      return;
+    }
+
+    final ScrollPosition position = _scrollController.position;
+    final double fraction = _revealIndex / (count - 1);
+    _scrollController.jumpTo(
+      (position.maxScrollExtent * fraction).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      ),
+    );
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _revealHighlight(retry: false),
+    );
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void _toggleMultiSelection(SelectOption<T> option) {
@@ -570,12 +760,16 @@ class _WSelectState<T> extends State<WSelect<T>> {
     if (widget.onSearch != null) {
       final int epoch = _listEpoch;
 
-      setState(() => _isSearching = true);
+      setState(() {
+        _isSearching = true;
+        _hoveredIndex = -1;
+      });
       try {
         final results = await widget.onSearch!(query);
         if (mounted && epoch == _listEpoch && _searchQuery == query) {
           setState(() {
             _filteredOptions = results;
+            _hoveredIndex = -1;
             _isSearching = false;
           });
         }
@@ -592,6 +786,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
     } else {
       // Local filtering
       setState(() {
+        _hoveredIndex = -1;
         if (query.isEmpty) {
           _filteredOptions = widget.options;
         } else {
@@ -688,6 +883,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
           link: _layerLink,
           child: Focus(
             focusNode: _focusNode,
+            onKeyEvent: _onKeyEvent,
             canRequestFocus: !widget.disabled,
             // A custom trigger can carry its own focus node.
             descendantsAreFocusable: !widget.disabled,
@@ -998,21 +1194,32 @@ class _WSelectState<T> extends State<WSelect<T>> {
         child: TapRegion(
           groupId: _tapGroupId,
           onTapOutside: (_) => _closeMenu(),
-          child: Material(
-            elevation: 0,
-            color: Colors.transparent,
-            child: Container(
-              width: menuWidth,
-              constraints: BoxConstraints(maxHeight: maxHeight),
-              decoration: _menuDecoration(menuStyles.decoration, borderRadius),
-              child: ClipRRect(
-                borderRadius: borderRadius,
-                child: WDiv(
-                  className: 'flex flex-col',
-                  children: [
-                    if (widget.searchable) _buildSearchInput(),
-                    Flexible(child: _buildOptionsContent()),
-                  ],
+          // The overlay is a sibling of the trigger's Focus, so a key from the
+          // focused search field never bubbles through the trigger. This one
+          // takes no focus and only catches what the field leaves unhandled.
+          child: Focus(
+            canRequestFocus: false,
+            skipTraversal: true,
+            onKeyEvent: _onKeyEvent,
+            child: Material(
+              elevation: 0,
+              color: Colors.transparent,
+              child: Container(
+                width: menuWidth,
+                constraints: BoxConstraints(maxHeight: maxHeight),
+                decoration: _menuDecoration(
+                  menuStyles.decoration,
+                  borderRadius,
+                ),
+                child: ClipRRect(
+                  borderRadius: borderRadius,
+                  child: WDiv(
+                    className: 'flex flex-col',
+                    children: [
+                      if (widget.searchable) _buildSearchInput(),
+                      Flexible(child: _buildOptionsContent()),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1124,7 +1331,21 @@ class _WSelectState<T> extends State<WSelect<T>> {
         final isSelected = _isValueSelected(option.value);
         final isHovered = index == _hoveredIndex;
 
-        return _buildOptionItem(option, isSelected, isHovered, index);
+        final Widget row = _buildOptionItem(
+          option,
+          isSelected,
+          isHovered,
+          index,
+        );
+        if (!_revealPending || index != _revealIndex) return row;
+
+        return Builder(
+          builder: (BuildContext rowContext) {
+            _revealContext = rowContext;
+
+            return row;
+          },
+        );
       },
     );
   }

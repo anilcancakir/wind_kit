@@ -192,6 +192,60 @@ void main() {
         expect(updatedStyles.fontWeight, context.theme.fontWeights['bold']);
       });
 
+      test('consumes an earlier named weight instead of reading it as a '
+          'family (#317)', () {
+        final updatedStyles = parser.parse(WindStyle(), [
+          'font-medium',
+          'font-semibold',
+        ], context);
+
+        expect(updatedStyles.fontWeight, FontWeight.w600);
+        expect(updatedStyles.fontFamily, isNull);
+      });
+
+      test('consumes an earlier arbitrary weight and keeps the last named '
+          'weight (#317)', () {
+        final updatedStyles = parser.parse(WindStyle(), [
+          'font-[600]',
+          'font-semibold',
+        ], context);
+
+        expect(updatedStyles.fontWeight, FontWeight.w600);
+        expect(updatedStyles.fontFamily, isNull);
+      });
+
+      test('consumes an earlier named weight and keeps the last arbitrary '
+          'weight (#317)', () {
+        final updatedStyles = parser.parse(WindStyle(), [
+          'font-semibold',
+          'font-[500]',
+        ], context);
+
+        expect(updatedStyles.fontWeight, FontWeight.w500);
+        expect(updatedStyles.fontFamily, isNull);
+      });
+
+      test('keeps the family when two weights follow it (#317)', () {
+        final updatedStyles = parser.parse(WindStyle(), [
+          'font-sans',
+          'font-medium',
+          'font-semibold',
+        ], context);
+
+        expect(updatedStyles.fontWeight, FontWeight.w600);
+        expect(updatedStyles.fontFamily, context.theme.fontFamilies['sans']);
+      });
+
+      test('treats a non-weight name as a family beside a weight (#317)', () {
+        final updatedStyles = parser.parse(WindStyle(), [
+          'font-display',
+          'font-bold',
+        ], context);
+
+        expect(updatedStyles.fontWeight, FontWeight.w700);
+        expect(updatedStyles.fontFamily, 'display');
+      });
+
       test('parses italic font style class', () {
         final styles = WindStyle();
         final classes = ['italic'];

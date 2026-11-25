@@ -274,6 +274,13 @@ class WPopover extends StatefulWidget {
   /// Set to `true` for simple menus where any tap should close.
   final bool closeOnContentTap;
 
+  /// Whether a tap outside the panel closes the popover.
+  ///
+  /// Default: `true`. With `false` the panel stays open on an outside tap and
+  /// still closes through the [controller], the trigger, Escape and the
+  /// `close` callback of [contentBuilder].
+  final bool closeOnOutsideTap;
+
   /// Callback when popover opens
   final VoidCallback? onOpen;
 
@@ -304,6 +311,7 @@ class WPopover extends StatefulWidget {
     this.maxWidth,
     this.disabled = false,
     this.closeOnContentTap = false,
+    this.closeOnOutsideTap = true,
     this.onOpen,
     this.onClose,
     this.autoFlip = true,
@@ -1064,7 +1072,9 @@ class _WPopoverState extends State<WPopover> {
         heightFactor: 1,
         child: TapRegion(
           groupId: _tapRegionGroupId,
-          onTapOutside: (_) => _handleTapOutside(),
+          onTapOutside: widget.closeOnOutsideTap
+              ? (_) => _handleTapOutside()
+              : null,
           child: GestureDetector(
             onTap: widget.closeOnContentTap ? close : null,
             behavior: HitTestBehavior.translucent,

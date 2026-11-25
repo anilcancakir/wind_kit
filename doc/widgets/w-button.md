@@ -55,6 +55,8 @@ const WButton({
   Color? loadingColor,
   Set<String>? states,
   String? semanticLabel,
+  FocusNode? focusNode,
+  bool autofocus = false,
 })
 ```
 
@@ -68,7 +70,7 @@ const WButton({
 | `onTap` | `VoidCallback?` | `null` | Callback when the button is tapped. Disabled if `isLoading` or `disabled` is true. |
 | `onLongPress` | `VoidCallback?` | `null` | Callback for long press gestures. |
 | `onDoubleTap` | `VoidCallback?` | `null` | Callback for double tap gestures. |
-| `isLoading` | `bool` | `false` | Activates loading state: disables interaction and shows a spinner. |
+| `isLoading` | `bool` | `false` | Activates loading state: disables interaction and paints a spinner instead of the child. The button keeps its accessible name (see [Loading States](#loading-states)). |
 | `disabled` | `bool` | `false` | Activates disabled state: disables interaction and changes cursor. |
 | `loadingText` | `String?` | `null` | Text to display next to the loading spinner. |
 | `loadingWidget` | `Widget?` | `null` | Custom widget to replace the default spinner. |
@@ -76,6 +78,8 @@ const WButton({
 | `loadingColor` | `Color?` | `null` | Colour of the spinner. Falls back to text colour, then auto-computes contrast via W3C luminance when no colour is resolvable. |
 | `states` | `Set<String>?` | `null` | Custom state prefixes (e.g., `{'error'}` for `error:` classes). |
 | `semanticLabel` | `String?` | `null` | Accessible name for icon-only controls. When set, excludes the child subtree from semantics so the label overrides any child text; prefer it for icon-only controls rather than buttons that already expose readable text. |
+| `focusNode` | `FocusNode?` | `null` | A focus node you own, to move focus to the button or read its focus. The button never disposes it, and swapping it between rebuilds moves the `focus:` styling to the new node. A disabled or loading button cannot take focus. Forwarded to `WAnchor`. |
+| `autofocus` | `bool` | `false` | Asks for focus when the button first mounts, only when nothing in the focus scope is focused already. Forwarded to `WAnchor`. |
 
 <a name="layout-modes"></a>
 ## Layout Modes
@@ -132,9 +136,26 @@ WButton(
 <a name="styling-examples"></a>
 ## Styling Examples
 
+### Focus Control
+
+Pass a `focusNode` to move focus to a button from code, or `autofocus: true` to take focus on mount. You create and dispose the node; `focus:` classes follow it.
+
+```dart
+final FocusNode _saveFocus = FocusNode();
+
+WButton(
+  focusNode: _saveFocus,
+  onTap: _save,
+  className: 'bg-blue-600 focus:ring-2 focus:ring-blue-300 dark:bg-blue-500 dark:focus:ring-blue-700 text-white px-4 py-2 rounded-lg',
+  child: WText('Save'),
+)
+
+// Elsewhere: _saveFocus.requestFocus();
+```
+
 ### Loading States
 
-When `isLoading` is true, `WButton` replaces the `child` with a spinner. You can add text or a custom widget.
+When `isLoading` is true, `WButton` paints a spinner instead of the `child`. You can add text or a custom widget.
 
 ```dart
 // Basic spinner
@@ -152,6 +173,17 @@ WButton(
   child: WText('Submit'),
 )
 ```
+
+A loading button stays a button for assistive technology, marked not enabled, and keeps an accessible name. The name is, in order:
+
+1. `semanticLabel`, when given.
+2. The rendered `loadingText`, when `loadingText` is set and `loadingWidget` is null.
+3. The child's own text. The child stays mounted but is not painted (it sits at zero opacity in a `Stack` beside the spinner), so the loading layout is unchanged.
+
+With a `loadingWidget`, `loadingText` is never rendered, so the child names the button. Because the child remains in the tree, a test finder such as `find.text('Save')` still matches it while loading.
+
+> [!NOTE]
+> A loading button disables its anchor, so it cannot hold focus: a keyboard or D-pad user who has focus on the button when loading starts loses it.
 
 > [!NOTE]
 > When no explicit `loadingColor` is set and no text colour is available from the className, the spinner automatically picks a contrasting colour (light or dark) based on the button's background luminance using the W3C relative luminance algorithm.

@@ -87,7 +87,7 @@ class _ButtonBasicExamplePageState extends State<ButtonBasicExamplePage> {
         ),
         ExampleSection(
           title: 'Loading State',
-          description: 'isLoading swaps the child for a spinner and activates loading: prefixed classes. loadingText prints a label next to the spinner.',
+          description: 'isLoading paints a spinner instead of the child and activates loading: prefixed classes. loadingText prints a label next to the spinner; without it the child stays mounted, unpainted, and names the button.',
           child: WDiv(
             className: 'wrap gap-3 items-center',
             children: [
@@ -148,6 +148,11 @@ class _ButtonBasicExamplePageState extends State<ButtonBasicExamplePage> {
             ],
           ),
         ),
+        const ExampleSection(
+          title: 'Focus Control',
+          description: 'focusNode and autofocus reach the WAnchor underneath. The caller owns the node; focus: classes follow it.',
+          child: _FocusDemo(),
+        ),
         ExampleSection(
           title: 'Icon Button',
           description:
@@ -175,6 +180,56 @@ class _ButtonBasicExamplePageState extends State<ButtonBasicExamplePage> {
                 child: WIcon(Icons.check, className: 'text-white w-5 h-5'),
               ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Owns the [FocusNode] a [WButton] is given, so the page can move focus to it.
+class _FocusDemo extends StatefulWidget {
+  const _FocusDemo();
+
+  @override
+  State<_FocusDemo> createState() => _FocusDemoState();
+}
+
+class _FocusDemoState extends State<_FocusDemo> {
+  final FocusNode _saveFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _saveFocus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WDiv(
+      className: 'wrap gap-3 items-center',
+      children: [
+        WButton(
+          focusNode: _saveFocus,
+          onTap: () {},
+          className: '''
+            bg-blue-600 hover:bg-blue-700
+            dark:bg-blue-500 dark:hover:bg-blue-600
+            focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700
+            text-white px-4 py-2 rounded-lg duration-200
+          ''',
+          child: const WText('Save', className: 'text-white font-medium'),
+        ),
+        WButton(
+          onTap: _saveFocus.requestFocus,
+          className: '''
+            bg-slate-200 hover:bg-slate-300
+            dark:bg-slate-700 dark:hover:bg-slate-600
+            px-4 py-2 rounded-lg duration-200
+          ''',
+          child: const WText(
+            'Focus Save',
+            className: 'text-slate-700 dark:text-slate-200 font-medium',
           ),
         ),
       ],

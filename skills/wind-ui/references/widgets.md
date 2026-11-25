@@ -293,11 +293,15 @@ const WButton({
   Color? loadingColor,               // explicit override; otherwise contrast-detected
   Set<String>? states,
   String? semanticLabel,             // accessible name for icon-only buttons (no child text for Semantics to absorb)
+  FocusNode? focusNode,              // caller-owned, never disposed by the button; forwarded to WAnchor
+  bool autofocus = false,            // takes focus on mount only when nothing in scope is focused; forwarded to WAnchor
 })
 ```
 
 Loading state mechanics:
-- `isLoading: true` replaces the child with a default 16×16 `CircularProgressIndicator` (2 px stroke) plus optional `loadingText` in a flex row.
+- `isLoading: true` paints a default 16×16 `CircularProgressIndicator` (2 px stroke) plus optional `loadingText` in a flex row instead of the child.
+- A loading button keeps its accessible name: `semanticLabel`, else the rendered `loadingText` (set, with no `loadingWidget`), else the child's own text. In the last case the child stays mounted but unpainted (`Opacity(0, alwaysIncludeSemantics: true)` in a `Stack` beside the spinner), so the layout is unchanged and `find.text` still matches it. It stays a button node with `enabled: false`.
+- A disabled or loading button cannot take focus, so a keyboard user holding focus on it when loading starts loses it.
 - All taps are absorbed via `AbsorbPointer` when loading.
 - Spinner colour resolution chain: explicit `loadingColor` → `styles.color` (from `text-*`, skipped when fully transparent, because `text-transparent` hides the label, not the spinner) → contrast colour (W3C relative-luminance against background) → white fallback.
 

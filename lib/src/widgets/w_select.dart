@@ -291,6 +291,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
   final LayerLink _layerLink = LayerLink();
   final OverlayPortalController _overlayController = OverlayPortalController();
   final FocusNode _focusNode = FocusNode();
+  final FocusNode _searchFocusNode = FocusNode();
   final GlobalKey _triggerKey = GlobalKey();
   final ScrollController _scrollController = ScrollController();
 
@@ -349,6 +350,15 @@ class _WSelectState<T> extends State<WSelect<T>> {
   /// The highlighted row: the hovered one, or the one the keyboard moved to.
   int _hoveredIndex = -1;
 
+  /// Whether the keyboard placed the highlight. Until the pointer actually
+  /// moves, a row that slides under a resting pointer (a reveal scrolled the
+  /// list) must not take the highlight over through its enter or exit.
+  bool _keyboardHighlight = false;
+
+  /// The option a remote re-filter under an unchanged query keeps highlighted
+  /// once its results land; null when no such re-filter is in flight.
+  SelectOption<T>? _refilterHighlight;
+
   /// Whether a keyboard move still has to scroll its row into view.
   ///
   /// While raised, every row the list builds hands its context to
@@ -389,10 +399,12 @@ class _WSelectState<T> extends State<WSelect<T>> {
       // A parent that builds `options` inline hands over a new list on every
       // rebuild, including the one a multi-select toggle triggers, so the
       // highlight follows its option into the new list instead of resetting.
+      // A remote re-filter still in flight has cleared the index, so its
+      // pending option stands in for it.
       final SelectOption<T>? highlighted =
           _hoveredIndex >= 0 && _hoveredIndex < _filteredOptions.length
           ? _filteredOptions[_hoveredIndex]
-          : null;
+          : _refilterHighlight;
       _filteredOptions = widget.options;
       // The other place the list is replaced wholesale, and the epoch covers
       // it for the same reason it covers the open: a page or a search captured
@@ -415,6 +427,11 @@ class _WSelectState<T> extends State<WSelect<T>> {
       } else {
         _filterOptions(_searchQuery, highlighted: highlighted);
       }
+      // A reveal in progress follows the highlight to its new row; the rows it
+      // recorded belong to the old list, and the rebuild records the new ones.
+      if (_revealPending) {
+        _requestReveal(_hoveredIndex, downward: _revealDownward);
+      }
     }
   }
 
@@ -433,6 +450,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
     FocusManager.instance.removeHighlightModeListener(_onHighlightModeChange);
     _focusNode.removeListener(_syncKeyboardFocus);
     _focusNode.dispose();
+    _searchFocusNode.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
@@ -515,6 +533,8 @@ class _WSelectState<T> extends State<WSelect<T>> {
         _searchQuery = '';
         _filteredOptions = widget.options;
         _hoveredIndex = keyboard ? _initialHighlight() : -1;
+        _keyboardHighlight = keyboard;
+        _refilterHighlight = null;
         // A selected option far down a long list opens off screen otherwise.
         _requestReveal(_hoveredIndex, downward: true);
         // The query and the list are back to their defaults, so the search
@@ -533,6 +553,10 @@ class _WSelectState<T> extends State<WSelect<T>> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || !_isOpen) return;
           _overlayController.show();
+          // The search field attaches with the overlay, and the request waits
+          // for it. `autofocus` was not enough: it is dropped while any other
+          // node in the scope holds focus, another text field included.
+          if (widget.searchable) _searchFocusNode.requestFocus();
           // The overlay builds on the frame after `show`, so the reveal waits
           // for that one.
           if (_revealPending) _scheduleReveal();
@@ -552,14 +576,9 @@ class _WSelectState<T> extends State<WSelect<T>> {
 
     // A pointer open leaves focus wherever the tap put it, and the keys only
     // reach this widget from its trigger. A searchable menu hands focus to its
-    // own search field instead, and the field's autofocus only wins when
-    // nothing in the scope holds focus, so the trigger lets go of it first.
-    if (!isOpening) return;
-    if (widget.searchable) {
-      _focusNode.unfocus();
-    } else {
-      _focusNode.requestFocus();
-    }
+    // own search field instead, once the overlay mounts (above).
+    if (!isOpening || widget.searchable) return;
+    _focusNode.requestFocus();
   }
 
   /// Closes the menu. [restoreFocus] hands focus back to the trigger first,
@@ -680,15 +699,26 @@ class _WSelectState<T> extends State<WSelect<T>> {
     return KeyEventResult.handled;
   }
 
+  /// Selects the highlighted option, or runs the create action when the menu
+  /// shows it (no match for the typed query) and nothing is highlighted.
   void _selectHighlighted() {
-    if (_isSearching ||
-        _hoveredIndex < 0 ||
-        _hoveredIndex >= _filteredOptions.length) {
+    if (_isSearching) return;
+
+    if (_hoveredIndex >= 0 && _hoveredIndex < _filteredOptions.length) {
+      _selectOption(_filteredOptions[_hoveredIndex], restoreFocus: true);
+
       return;
     }
 
-    _selectOption(_filteredOptions[_hoveredIndex], restoreFocus: true);
+    if (_canCreate && !_isCreating) _createOption(restoreFocus: true);
   }
+
+  /// Whether the menu shows the create action, mirroring
+  /// [_buildOptionsContent].
+  bool get _canCreate =>
+      widget.onCreateOption != null &&
+      _searchQuery.isNotEmpty &&
+      _filteredOptions.isEmpty;
 
   /// Moves the highlight to [index] and scrolls its row into view. A -1 (no
   /// enabled option in that direction) leaves the highlight where it is, so it
@@ -701,6 +731,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
     setState(() {
       final bool downward = index > _hoveredIndex;
       _hoveredIndex = index;
+      _keyboardHighlight = true;
       _requestReveal(index, downward: downward);
     });
     _scheduleReveal();
@@ -867,14 +898,31 @@ class _WSelectState<T> extends State<WSelect<T>> {
     });
   }
 
-  Future<void> _createOption() async {
+  /// A row entered or left the pointer. While the keyboard owns the highlight
+  /// this is a row sliding under a resting pointer, so it is ignored.
+  void _onRowPointerCrossing(int value) {
+    if (_keyboardHighlight) return;
+
+    _setHoveredIndex(value);
+  }
+
+  /// The pointer moved over a row, which hands the highlight back to it.
+  void _onRowPointerHover(int index) {
+    if (!_keyboardHighlight && _hoveredIndex == index) return;
+
+    _keyboardHighlight = false;
+    _setHoveredIndex(index);
+  }
+
+  /// [restoreFocus] is passed on to the selection, as a keyboard select does.
+  Future<void> _createOption({bool restoreFocus = false}) async {
     if (widget.onCreateOption == null || _searchQuery.isEmpty) return;
 
     setState(() => _isCreating = true);
     try {
       final newOption = await widget.onCreateOption!(_searchQuery);
       if (mounted) {
-        _selectOption(newOption);
+        _selectOption(newOption, restoreFocus: restoreFocus);
         setState(() {
           _searchQuery = '';
           _isCreating = false;
@@ -899,6 +947,9 @@ class _WSelectState<T> extends State<WSelect<T>> {
     if (widget.onSearch != null) {
       final int epoch = _listEpoch;
 
+      // Held outside `_hoveredIndex`, which the spinner clears, so a second
+      // refresh of `options` before this answers still finds the option.
+      _refilterHighlight = highlighted;
       setState(() {
         _isSearching = true;
         _hoveredIndex = -1;
@@ -908,7 +959,8 @@ class _WSelectState<T> extends State<WSelect<T>> {
         if (mounted && epoch == _listEpoch && _searchQuery == query) {
           setState(() {
             _filteredOptions = results;
-            _hoveredIndex = _indexOfOption(results, highlighted);
+            _hoveredIndex = _indexOfOption(results, _refilterHighlight);
+            _refilterHighlight = null;
             _isSearching = false;
           });
         }
@@ -919,6 +971,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
         // spinner while the newer search was still in flight, leaving the
         // pre-search list on screen looking settled until it landed.
         if (mounted && epoch == _listEpoch && _searchQuery == query) {
+          _refilterHighlight = null;
           setState(() => _isSearching = false);
         }
       }
@@ -1373,7 +1426,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
       className: 'p-2',
       child: WInput(
         placeholder: widget.searchPlaceholder,
-        autofocus: true,
+        focusNode: _searchFocusNode,
         className:
             'p-2 border border-gray-300 dark:border-gray-600 rounded text-sm',
         onChanged: _filterOptions,
@@ -1501,8 +1554,9 @@ class _WSelectState<T> extends State<WSelect<T>> {
       return GestureDetector(
         onTap: () => _selectOption(option),
         child: MouseRegion(
-          onEnter: (_) => _setHoveredIndex(index),
-          onExit: (_) => _setHoveredIndex(-1),
+          onEnter: (_) => _onRowPointerCrossing(index),
+          onHover: (_) => _onRowPointerHover(index),
+          onExit: (_) => _onRowPointerCrossing(-1),
           cursor: option.disabled
               ? SystemMouseCursors.forbidden
               : SystemMouseCursors.click,
@@ -1536,8 +1590,9 @@ class _WSelectState<T> extends State<WSelect<T>> {
       child: GestureDetector(
         onTap: () => _selectOption(option),
         child: MouseRegion(
-          onEnter: (_) => _setHoveredIndex(index),
-          onExit: (_) => _setHoveredIndex(-1),
+          onEnter: (_) => _onRowPointerCrossing(index),
+          onHover: (_) => _onRowPointerHover(index),
+          onExit: (_) => _onRowPointerCrossing(-1),
           cursor: option.disabled
               ? SystemMouseCursors.forbidden
               : SystemMouseCursors.click,

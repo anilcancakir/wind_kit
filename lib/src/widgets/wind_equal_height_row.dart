@@ -21,9 +21,9 @@ import 'package:flutter/widgets.dart';
 /// `RenderFlex overflowed` warning the way a tight re-lay could on fractional
 /// (sub-pixel) content (issue #141).
 ///
-/// The incoming width is split into [columns] equal columns (`unit = (maxWidth
-/// - spacing * (columns - 1)) / columns`) and each child spans [spans] of them,
-/// so its width is `span * unit + (span - 1) * spacing` and the next child
+/// The incoming width is split into [columns] equal columns, each
+/// `(maxWidth - spacing * (columns - 1)) / columns` wide, and each child spans
+/// [spans] of them, so its width is `span * unit + (span - 1) * spacing` and the next child
 /// starts one [spacing] after it. With neither given, [columns] is the child
 /// count and every span is 1: an equal share per child. A row shorter than
 /// [columns] keeps its columns aligned by leaving the right-hand ones empty, so
@@ -114,8 +114,10 @@ class _RenderEqualHeightRow extends RenderBox
   }
 
   /// The width of the child at [index] spanning its columns, given the width of
-  /// one column.
+  /// one column. A row too narrow for its gaps has no column width at all, so
+  /// a span must not grow past it on the strength of the gaps inside it.
   double _cellWidth(int index, double unit) {
+    if (unit == 0) return 0;
     final int span = _spans?[index] ?? 1;
     return span * unit + (span - 1) * _spacing;
   }
@@ -138,8 +140,12 @@ class _RenderEqualHeightRow extends RenderBox
     final List<int>? spans = _spans;
     assert(
       spans == null ||
-          (spans.length == count && spans.every((int span) => span > 0)),
-      'WindEqualHeightRow.spans needs one positive entry per child.',
+          (spans.length == count &&
+              spans.every((int span) => span > 0) &&
+              (_columns == null ||
+                  spans.fold(0, (a, b) => a + b) <= _columns!)),
+      'WindEqualHeightRow.spans needs one positive entry per child, '
+      'totalling at most columns.',
     );
     final int columns =
         _columns ?? (spans == null ? count : spans.fold(0, (a, b) => a + b));

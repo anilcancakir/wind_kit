@@ -170,6 +170,26 @@ void main() {
         expect(tester.getSize(find.byKey(aKey)).width, 400);
       });
 
+      testWidgets('collapses a span to zero when the gaps leave no room (#328)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            const WindEqualHeightRow(
+              spacing: 16,
+              columns: 12,
+              spans: [12],
+              children: [SizedBox(key: aKey, height: 10)],
+            ),
+            width: 150,
+          ),
+        );
+
+        // 11 gaps of 16 are wider than the row, so no column has any width and
+        // a span must not grow past the row on the strength of its inner gaps.
+        expect(tester.getSize(find.byKey(aKey)).width, 0);
+      });
+
       testWidgets('leaves the trailing columns empty on a short row (#328)', (
         tester,
       ) async {

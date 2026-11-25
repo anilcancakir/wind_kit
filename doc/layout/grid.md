@@ -104,7 +104,7 @@ WDiv(
 ```
 
 - A span larger than the column count caps at the column count, and `col-span-0` counts as one column.
-- Prefixes work: `md:col-span-2` is one column below the `md` breakpoint and two above it.
+- Breakpoint and `dark:` prefixes work: `md:col-span-2` is one column below the `md` breakpoint and two above it. A state prefix such as `hover:` is read only from the child's own `states`, so the child's anchor hover does not change its span.
 - Rows pack in order and sparsely: a child that does not fit the columns left in the row starts the next row, and later children never backfill the gap.
 - Both the default `Wrap` grid and the `items-stretch` grid honour spans; with `items-stretch` each row still shares one height.
 - Only a child that carries a `className` can span, which means a Wind widget such as `WDiv`, `WText` or `WButton`. A plain Flutter widget such as `Text` or `SizedBox` keeps one column; wrap it in a `WDiv` to span it.

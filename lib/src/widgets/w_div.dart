@@ -486,7 +486,11 @@ class WDiv extends StatelessWidget {
                 context,
               );
             case WindDisplayType.grid:
-              normalLayout = tempDiv._buildGridStructure(styles, logger);
+              normalLayout = tempDiv._buildGridStructure(
+                styles,
+                logger,
+                context,
+              );
             case WindDisplayType.wrap:
               normalLayout = tempDiv._buildWrapStructure(styles, logger);
             default:
@@ -513,7 +517,7 @@ class WDiv extends StatelessWidget {
         case WindDisplayType.flex:
           return _buildFlexStructure(styles, logger, context);
         case WindDisplayType.grid:
-          return _buildGridStructure(styles, logger);
+          return _buildGridStructure(styles, logger, context);
         case WindDisplayType.wrap:
           return _buildWrapStructure(styles, logger);
         default:
@@ -1278,7 +1282,11 @@ class WDiv extends StatelessWidget {
   ///
   /// When overflow-x-scroll is set, we use Row instead of Wrap to allow
   /// horizontal scrolling with intrinsic child widths.
-  Widget _buildGridStructure(WindStyle styles, WindLogger logger) {
+  Widget _buildGridStructure(
+    WindStyle styles,
+    WindLogger logger,
+    BuildContext context,
+  ) {
     // Clamp to >= 1: `grid-cols-0` (the parser regex allows 0) would divide by
     // zero in the Wrap itemWidth and never advance the items-stretch row loop
     // (`start += cols`), hanging the build. One column is the safe floor.
@@ -1313,12 +1321,14 @@ class WDiv extends StatelessWidget {
       );
     }
 
+    final spans = _resolveColSpans(cols, context);
+
     // `items-stretch` opts into equal-height rows (CSS Grid's default
     // `align-items: stretch`). The default Wrap path sizes each cell to its own
     // content, so a taller cell leaves its row ragged. Build a Column of
     // IntrinsicHeight Rows instead, so every cell in a row matches the tallest.
     if (styles.crossAxisAlignment == CrossAxisAlignment.stretch) {
-      return _buildStretchGrid(cols, gapX, gapY, logger);
+      return _buildStretchGrid(cols, gapX, gapY, spans, logger);
     }
 
     logger.setCoreWidget(
@@ -1343,25 +1353,72 @@ class WDiv extends StatelessWidget {
         return Wrap(
           spacing: gapX,
           runSpacing: gapY,
-          children: children!.map((child) {
-            return SizedBox(
-              width: itemWidth > 0 ? itemWidth : null,
-              child: child,
-            );
-          }).toList(),
+          children: [
+            for (var i = 0; i < children!.length; i++)
+              SizedBox(
+                width: itemWidth > 0
+                    ? _spanWidth(
+                        spans?[i] ?? 1,
+                        cols,
+                        itemWidth,
+                        gapX,
+                        availableWidth,
+                      )
+                    : null,
+                child: children![i],
+              ),
+          ],
         );
       },
     );
   }
 
+  /// Resolves each child's `col-span-*` for a grid of [cols] columns, clamped
+  /// to 1..[cols] (`col-span-full` is [WindStyle.gridColSpanFull], so it caps
+  /// at [cols]). Null when no child asks for a span, so a plain grid pays no
+  /// parse. Only a child whose className mentions `col-span-` is parsed, with
+  /// the build [context] so `md:col-span-2` resolves by breakpoint; a child
+  /// that exposes no className keeps one column.
+  List<int>? _resolveColSpans(int cols, BuildContext context) {
+    List<int>? spans;
+    for (var i = 0; i < children!.length; i++) {
+      final className = _extractChildClassName(children![i]);
+      if (className == null || !className.contains('col-span-')) continue;
+      final colSpan = WindParser.parse(
+        className,
+        context,
+        states: _extractChildStates(children![i]),
+      ).gridColSpan;
+      if (colSpan == null) continue;
+      spans ??= List<int>.filled(children!.length, 1);
+      spans[i] = colSpan.clamp(1, cols);
+    }
+    return spans;
+  }
+
+  /// Width of a cell spanning [span] of [cols] columns. A full-row span takes
+  /// [availableWidth] exactly: rebuilding it from `cols * itemWidth + gaps`
+  /// could land a hair over and make the Wrap push the cell onto its own line.
+  static double _spanWidth(
+    int span,
+    int cols,
+    double itemWidth,
+    double gapX,
+    double availableWidth,
+  ) {
+    if (span >= cols) return availableWidth;
+    return span * itemWidth + (span - 1) * gapX;
+  }
+
   /// Builds an equal-height grid (`grid ... items-stretch`).
   ///
-  /// A `Column` of [WindEqualHeightRow]s, `cols` cells per row. Each row lays
-  /// its cells out for real (a loose-height pass to measure the tallest, then a
-  /// re-layout to at least that height via a min constraint) and gives each an
-  /// equal width share, so
-  /// every cell matches the row's tallest. The last row is padded with blank
-  /// cells so columns stay aligned.
+  /// A `Column` of [WindEqualHeightRow]s, up to `cols` columns per row. Each
+  /// row lays its cells out for real (a loose-height pass to measure the
+  /// tallest, then a re-layout to at least that height via a min constraint)
+  /// and gives each its `spans` of the column grid, so every cell matches the
+  /// row's tallest. Rows pack greedily: a cell whose span does not fit the
+  /// remaining columns starts the next row, as `Wrap` does. A short row keeps
+  /// its columns aligned through `columns`, with no blank padding cells.
   ///
   /// Because the row uses real layout rather than the intrinsic protocol, cells
   /// whose content is a `flex flex-col`, or that use `h-full` / `basis-*`,
@@ -1373,6 +1430,7 @@ class WDiv extends StatelessWidget {
     int cols,
     double gapX,
     double gapY,
+    List<int>? spans,
     WindLogger logger,
   ) {
     logger.setCoreWidget(
@@ -1382,16 +1440,19 @@ class WDiv extends StatelessWidget {
     final items = children!;
     final rows = <Widget>[];
 
-    for (var start = 0; start < items.length; start += cols) {
-      final end = (start + cols) > items.length ? items.length : start + cols;
-      final rowItems = items.sublist(start, end);
-
-      // One child per column so widths line up; pad a short final row with
-      // blank cells. WindEqualHeightRow assigns each an equal width share.
-      final rowChildren = <Widget>[
-        for (var c = 0; c < cols; c++)
-          c < rowItems.length ? rowItems[c] : const SizedBox.shrink(),
-      ];
+    var start = 0;
+    while (start < items.length) {
+      // Spans are clamped to `cols`, so the first cell always fits and every
+      // row advances.
+      var end = start;
+      var used = 0;
+      while (end < items.length && used + (spans?[end] ?? 1) <= cols) {
+        used += spans?[end] ?? 1;
+        end++;
+      }
+      final rowChildren = items.sublist(start, end);
+      final rowSpans = spans?.sublist(start, end);
+      start = end;
 
       if (rows.isNotEmpty && gapY > 0) {
         rows.add(SizedBox(height: gapY));
@@ -1402,7 +1463,14 @@ class WDiv extends StatelessWidget {
       // cell clear of the "LayoutBuilder does not support returning intrinsic
       // dimensions" assert (#139) back when it carried one, and the
       // min (never tight) height leaves no residual RenderFlex overflow (#141).
-      rows.add(WindEqualHeightRow(spacing: gapX, children: rowChildren));
+      rows.add(
+        WindEqualHeightRow(
+          spacing: gapX,
+          columns: cols,
+          spans: rowSpans,
+          children: rowChildren,
+        ),
+      );
     }
 
     return Column(

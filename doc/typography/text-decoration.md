@@ -55,7 +55,10 @@ Use the `decoration-{color}` utilities to change the colour of the text decorati
 ```dart
 WText('Error', className: 'underline decoration-red-500')
 WText('Success', className: 'underline decoration-green-600')
+WText('Muted', className: 'underline decoration-red-500/50')
 ```
+
+An opacity suffix (`/50`, `/[0.5]`) works on the colour, as it does for background and text colours.
 
 ### Decoration Style
 

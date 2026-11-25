@@ -120,6 +120,20 @@ class WButton extends StatelessWidget {
   /// for the Semantics tree to absorb. Forwarded to [WAnchor.semanticLabel].
   final String? semanticLabel;
 
+  /// An external focus node, to move focus to the button or read its focus.
+  ///
+  /// The caller owns a given node: the button never disposes it, and swapping
+  /// it for another between rebuilds moves the `focus:` styling to the new
+  /// node. A disabled or loading button cannot take focus. Forwarded to
+  /// [WAnchor.focusNode].
+  final FocusNode? focusNode;
+
+  /// Whether the button asks for focus when it first mounts.
+  ///
+  /// Applies only when nothing in the focus scope is focused already, as with
+  /// [Focus.autofocus]. Forwarded to [WAnchor.autofocus].
+  final bool autofocus;
+
   /// Creates a new [WButton] instance.
   const WButton({
     super.key,
@@ -136,6 +150,8 @@ class WButton extends StatelessWidget {
     this.loadingColor,
     this.states,
     this.semanticLabel,
+    this.focusNode,
+    this.autofocus = false,
   });
 
   @override
@@ -156,6 +172,8 @@ class WButton extends StatelessWidget {
       onLongPress: onLongPress,
       onDoubleTap: onDoubleTap,
       isDisabled: !isInteractive,
+      focusNode: focusNode,
+      autofocus: autofocus,
       states: states,
       // Without a callback the label goes on the node built below: WAnchor
       // would publish it as an ENABLED button, since it is not `isDisabled`.

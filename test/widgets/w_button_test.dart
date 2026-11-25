@@ -1427,6 +1427,148 @@ void main() {
         expect((box.decoration! as BoxDecoration).boxShadow, isNotEmpty);
       });
     });
+
+    group('Focus node', () {
+      setUp(WindParser.clearCache);
+
+      const String focusClasses =
+          'px-4 py-2 bg-blue-600 focus:bg-blue-700 '
+          'dark:bg-blue-500 dark:focus:bg-blue-400';
+
+      Color? paintedColor(WidgetTester tester) {
+        final Container box = tester.widget<Container>(
+          find
+              .ancestor(of: find.text('Save'), matching: find.byType(Container))
+              .first,
+        );
+
+        return (box.decoration! as BoxDecoration).color;
+      }
+
+      testWidgets('an external node requested to focus applies the focus: '
+          'class (#329)', (tester) async {
+        final FocusNode node = FocusNode();
+        addTearDown(node.dispose);
+
+        await tester.pumpWidget(
+          wrapWithTheme(
+            WButton(
+              onTap: () {},
+              focusNode: node,
+              className: focusClasses,
+              child: const Text('Save'),
+            ),
+          ),
+        );
+        final Color? idle = paintedColor(tester);
+
+        node.requestFocus();
+        await tester.pumpAndSettle();
+
+        expect(node.hasPrimaryFocus, isTrue);
+        expect(paintedColor(tester), isNot(idle));
+        expect(paintedColor(tester), const Color(0xFF1D4ED8));
+      });
+
+      testWidgets('autofocus focuses the button on the first frame (#329)', (
+        tester,
+      ) async {
+        final FocusNode node = FocusNode();
+        addTearDown(node.dispose);
+
+        await tester.pumpWidget(
+          wrapWithTheme(
+            WButton(
+              onTap: () {},
+              focusNode: node,
+              autofocus: true,
+              className: focusClasses,
+              child: const Text('Save'),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(node.hasPrimaryFocus, isTrue);
+        expect(paintedColor(tester), const Color(0xFF1D4ED8));
+      });
+
+      testWidgets('unmounting the button leaves the external node undisposed '
+          '(#329)', (tester) async {
+        final FocusNode node = FocusNode();
+        addTearDown(node.dispose);
+
+        await tester.pumpWidget(
+          wrapWithTheme(
+            WButton(onTap: () {}, focusNode: node, child: const Text('Save')),
+          ),
+        );
+
+        await tester.pumpWidget(wrapWithTheme(const SizedBox()));
+
+        expect(() => node.addListener(() {}), returnsNormally);
+        expect(node.requestFocus, returnsNormally);
+      });
+
+      testWidgets('swapping the node moves focus styling to the new node '
+          '(#329)', (tester) async {
+        final FocusNode a = FocusNode();
+        final FocusNode b = FocusNode();
+        addTearDown(a.dispose);
+        addTearDown(b.dispose);
+
+        Widget button(FocusNode node) => wrapWithTheme(
+          WButton(
+            onTap: () {},
+            focusNode: node,
+            className: focusClasses,
+            child: const Text('Save'),
+          ),
+        );
+
+        await tester.pumpWidget(button(a));
+        final Color? idle = paintedColor(tester);
+        a.requestFocus();
+        await tester.pumpAndSettle();
+        expect(paintedColor(tester), isNot(idle));
+
+        await tester.pumpWidget(button(b));
+        expect(paintedColor(tester), idle);
+
+        b.requestFocus();
+        await tester.pumpAndSettle();
+        expect(paintedColor(tester), isNot(idle));
+
+        a.requestFocus();
+        await tester.pumpAndSettle();
+        expect(a.hasFocus, isFalse);
+      });
+
+      testWidgets('a button with no callback and a node is focusable (#329)', (
+        tester,
+      ) async {
+        final FocusNode node = FocusNode();
+        addTearDown(node.dispose);
+
+        await tester.pumpWidget(
+          wrapWithTheme(
+            WButton(
+              onTap: null,
+              focusNode: node,
+              className: focusClasses,
+              child: const Text('Save'),
+            ),
+          ),
+        );
+        final Color? idle = paintedColor(tester);
+
+        node.requestFocus();
+        await tester.pumpAndSettle();
+
+        expect(node.hasPrimaryFocus, isTrue);
+        expect(paintedColor(tester), isNot(idle));
+      });
+    });
   });
 }
 

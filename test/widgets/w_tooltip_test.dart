@@ -7,13 +7,17 @@ import 'package:wind_kit/wind_kit.dart';
 const String _message = 'Save changes';
 const Key _triggerKey = Key('trigger');
 
-Widget wrapWithTheme(Widget child, {Brightness brightness = Brightness.light}) {
+Widget wrapWithTheme(
+  Widget child, {
+  Brightness brightness = Brightness.light,
+  Alignment placement = Alignment.topLeft,
+}) {
   return MaterialApp(
     home: WindTheme(
       data: WindThemeData(brightness: brightness, syncWithSystem: false),
       child: Scaffold(
         body: Align(
-          alignment: Alignment.topLeft,
+          alignment: placement,
           child: Padding(padding: const EdgeInsets.all(16), child: child),
         ),
       ),
@@ -24,11 +28,15 @@ Widget wrapWithTheme(Widget child, {Brightness brightness = Brightness.light}) {
 Widget _tooltip({
   String message = _message,
   String? className,
+  PopoverAlignment alignment = PopoverAlignment.bottomCenter,
+  Offset offset = const Offset(0, 4),
   Duration hoverDelay = const Duration(milliseconds: 500),
 }) {
   return WTooltip(
     message: message,
     className: className,
+    alignment: alignment,
+    offset: offset,
     hoverDelay: hoverDelay,
     child: const SizedBox(
       key: _triggerKey,
@@ -74,6 +82,23 @@ Color? _boxFill(WidgetTester tester) {
     }
   }
   return null;
+}
+
+/// The rect of the tooltip box, the nearest decorated box above the text.
+Rect _boxRect(WidgetTester tester) {
+  return tester.getRect(
+    find
+        .ancestor(of: find.text(_message), matching: find.byType(DecoratedBox))
+        .first,
+  );
+}
+
+/// Sizes the view to [size] at a pixel ratio of 1, so overlay and view
+/// coordinates are the same logical pixels.
+void _sizeView(WidgetTester tester, Size size) {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
 }
 
 void main() {
@@ -226,6 +251,125 @@ void main() {
           tester.getSize(box).width,
           lessThan(tester.view.physicalSize.width / 2),
         );
+      });
+    });
+
+    group('Position', () {
+      const Offset gap = Offset(6, 10);
+
+      for (final PopoverAlignment alignment in PopoverAlignment.values) {
+        testWidgets('places the box for $alignment (#323)', (tester) async {
+          _sizeView(tester, const Size(800, 600));
+          await tester.pumpWidget(
+            wrapWithTheme(
+              _tooltip(alignment: alignment, offset: gap),
+              placement: Alignment.center,
+            ),
+          );
+          await _showByHover(tester);
+
+          final Rect child = tester.getRect(find.byKey(_triggerKey));
+          final Rect box = _boxRect(tester);
+          final String name = alignment.name;
+
+          if (name.startsWith('bottom')) {
+            expect(box.top, closeTo(child.bottom + gap.dy, 0.01));
+          } else {
+            expect(box.bottom, closeTo(child.top - gap.dy, 0.01));
+          }
+
+          if (name.endsWith('Left')) {
+            expect(box.left, closeTo(child.left + gap.dx, 0.01));
+          } else if (name.endsWith('Right')) {
+            expect(box.right, closeTo(child.right + gap.dx, 0.01));
+          } else {
+            expect(box.center.dx, closeTo(child.center.dx + gap.dx, 0.01));
+          }
+        });
+      }
+
+      testWidgets(
+        'keeps the box inside a narrow view at the right edge (#323)',
+        (tester) async {
+          _sizeView(tester, const Size(300, 600));
+          await tester.pumpWidget(
+            wrapWithTheme(_tooltip(), placement: Alignment.centerRight),
+          );
+          await _showByHover(tester);
+
+          final Rect box = _boxRect(tester);
+
+          expect(box.left, greaterThanOrEqualTo(0));
+          expect(box.right, lessThanOrEqualTo(300));
+        },
+      );
+
+      testWidgets(
+        'keeps the box inside a narrow view at the left edge (#323)',
+        (tester) async {
+          _sizeView(tester, const Size(300, 600));
+          await tester.pumpWidget(
+            wrapWithTheme(_tooltip(), placement: Alignment.centerLeft),
+          );
+          await _showByHover(tester);
+
+          final Rect box = _boxRect(tester);
+
+          expect(box.left, greaterThanOrEqualTo(0));
+          expect(box.right, lessThanOrEqualTo(300));
+        },
+      );
+
+      testWidgets(
+        'opens below a top-aligned tooltip with no room above (#323)',
+        (tester) async {
+          _sizeView(tester, const Size(800, 600));
+          await tester.pumpWidget(
+            wrapWithTheme(
+              _tooltip(alignment: PopoverAlignment.topCenter),
+              placement: Alignment.topCenter,
+            ),
+          );
+          await _showByHover(tester);
+
+          final Rect child = tester.getRect(find.byKey(_triggerKey));
+
+          expect(_boxRect(tester).top, closeTo(child.bottom + 4, 0.01));
+        },
+      );
+
+      testWidgets(
+        'opens above a bottom-aligned tooltip with no room below (#323)',
+        (tester) async {
+          _sizeView(tester, const Size(800, 600));
+          await tester.pumpWidget(
+            wrapWithTheme(_tooltip(), placement: Alignment.bottomCenter),
+          );
+          await _showByHover(tester);
+
+          final Rect child = tester.getRect(find.byKey(_triggerKey));
+
+          expect(_boxRect(tester).bottom, closeTo(child.top - 4, 0.01));
+        },
+      );
+
+      testWidgets('keeps a box taller than both sides inside the view (#323)', (
+        tester,
+      ) async {
+        _sizeView(tester, const Size(800, 200));
+        await tester.pumpWidget(
+          wrapWithTheme(
+            _tooltip(className: 'bg-gray-900 dark:bg-gray-100 h-36 px-2'),
+            placement: Alignment.center,
+          ),
+        );
+        await _showByHover(tester);
+
+        final Rect box = _boxRect(tester);
+
+        expect(box.height, greaterThan(72));
+        expect(box.top, greaterThanOrEqualTo(8));
+        expect(box.bottom, lessThanOrEqualTo(200 - 8));
       });
     });
   });

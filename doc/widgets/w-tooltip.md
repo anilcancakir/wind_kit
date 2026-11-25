@@ -66,10 +66,10 @@ const WTooltip({
 ## Behaviour
 
 - **Hover**: the tooltip shows once the pointer has hovered the child for `hoverDelay` and hides when the pointer leaves. The box itself is hoverable, so moving the pointer from the child onto the tooltip keeps it open.
-- **Keyboard focus**: when focus reaches the child, the tooltip shows at once, and it hides again on blur. It does so only while Flutter's focus highlight mode is the keyboard one, so a touch focus does not pop it. On desktop and web that mode also stays active after mouse input, so a click that moves focus into the child shows the tooltip at once and it stays until blur.
+- **Keyboard focus**: when focus reaches the child, the tooltip shows at once, and it hides again on blur, but only while that tooltip is still open from the focus: a blur never closes a tooltip that Escape had already dismissed or that another widget has since shown. It does so only while Flutter's focus highlight mode is the keyboard one, so a touch focus does not pop it. On desktop and web that mode also stays active after mouse input, so a click that moves focus into the child shows the tooltip at once and it stays until blur.
 - **Long press**: on touch, a long press shows the tooltip, and it stays for 1.5 seconds after the finger lifts.
 - **Escape**: Escape dismisses every open tooltip. While no tooltip is open, Escape is left alone and reaches the app's own shortcuts.
-- **Never takes focus**: `WTooltip` is not a Tab stop and never becomes the primary focus. The child keeps its own focus behaviour.
+- **Never takes focus**: `WTooltip` is not a Tab stop and never becomes the primary focus, even when `className` carries a `focus:` class. The child keeps its own focus behaviour.
 - **Semantics**: `message` becomes the child's semantics tooltip, so screen readers announce it with the child.
 - **Empty message**: an empty `message` renders the bare child, with no overlay, no semantics tooltip and no hover or focus trigger.
 
@@ -87,7 +87,7 @@ const WTooltip({
 | `topLeft` | Above the child, aligned to its left edge. |
 | `topRight` | Above the child, aligned to its right edge. |
 
-The tooltip flips to the opposite side when the requested one has no room, and it is pulled back inside the overlay horizontally. A box taller than the room on its side is held inside the overlay with an 8 pixel margin.
+The tooltip flips to the opposite side when the requested one has no room, and it is pulled back inside the overlay horizontally. A box taller than the room on its side is held inside the overlay with an 8 pixel margin. The box is capped at the overlay height less that margin on both sides, and a message longer than the cap scrolls inside it.
 
 ```dart
 WTooltip(

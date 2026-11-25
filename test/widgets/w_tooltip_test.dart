@@ -303,6 +303,45 @@ void main() {
         expect(find.text('Discard'), findsOneWidget);
       });
 
+      testWidgets(
+        'keeps a hovered tooltip open when focus leaves a dismissed one (#323)',
+        (tester) async {
+          _highlight(FocusHighlightStrategy.alwaysTraditional);
+          final FocusNode first = _node('first');
+          final FocusNode next = _node('next');
+          await tester.pumpWidget(
+            wrapWithTheme(
+              _focusTooltip(
+                first: first,
+                next: next,
+                ancestorEscapes: [],
+                secondMessage: 'Discard',
+              ),
+            ),
+          );
+          first.requestFocus();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+          expect(find.text(_message), findsOneWidget);
+
+          await _escape(tester);
+          expect(find.text(_message), findsNothing);
+
+          final TestGesture gesture = await _mouse(tester);
+          await gesture.moveTo(tester.getCenter(find.text('Next')));
+          await tester.pump(const Duration(milliseconds: 500));
+          await tester.pump(const Duration(milliseconds: 200));
+          expect(find.text('Discard'), findsOneWidget);
+
+          first.unfocus();
+          await tester.pumpAndSettle();
+
+          expect(first.hasFocus, isFalse);
+          expect(next.hasFocus, isFalse);
+          expect(find.text('Discard'), findsOneWidget);
+        },
+      );
+
       testWidgets('hides a hover-shown tooltip on Escape (#323)', (
         tester,
       ) async {
@@ -647,6 +686,81 @@ void main() {
         expect(box.height, greaterThan(72));
         expect(box.top, greaterThanOrEqualTo(8));
         expect(box.bottom, lessThanOrEqualTo(200 - 8));
+      });
+
+      testWidgets('shrinks a box taller than the view to fit it (#323)', (
+        tester,
+      ) async {
+        _sizeView(tester, const Size(800, 200));
+        await tester.pumpWidget(
+          wrapWithTheme(
+            _tooltip(className: 'bg-gray-900 dark:bg-gray-100 h-72 px-2'),
+            placement: Alignment.center,
+          ),
+        );
+        await _showByHover(tester);
+
+        final Rect box = _boxRect(tester);
+
+        expect(box.top, greaterThanOrEqualTo(8));
+        expect(box.bottom, lessThanOrEqualTo(200 - 8));
+      });
+
+      testWidgets('scrolls a message taller than the view (#323)', (
+        tester,
+      ) async {
+        _sizeView(tester, const Size(800, 120));
+        await tester.pumpWidget(
+          wrapWithTheme(
+            _tooltip(
+              message: List<String>.filled(30, 'Line').join('\n'),
+              className: 'bg-gray-900 dark:bg-gray-100 text-xs px-2 py-1',
+            ),
+            placement: Alignment.center,
+          ),
+        );
+        final TestGesture gesture = await _mouse(tester);
+        await gesture.moveTo(tester.getCenter(find.byKey(_triggerKey)));
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(const Duration(milliseconds: 200));
+
+        final Finder box = find
+            .ancestor(
+              of: find.byType(SingleChildScrollView),
+              matching: find.byType(DecoratedBox),
+            )
+            .first;
+
+        expect(tester.getRect(box).top, greaterThanOrEqualTo(8));
+        expect(tester.getRect(box).bottom, lessThanOrEqualTo(120 - 8));
+        expect(
+          tester
+              .state<ScrollableState>(find.byType(Scrollable))
+              .position
+              .maxScrollExtent,
+          greaterThan(0),
+        );
+      });
+    });
+
+    group('Focus', () {
+      testWidgets('refuses focus on a focus-styled tooltip box (#323)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            _tooltip(className: 'bg-gray-900 focus:ring-2 text-xs px-2 py-1'),
+          ),
+        );
+        await _showByHover(tester);
+        expect(find.text(_message), findsOneWidget);
+
+        final FocusNode box = Focus.of(tester.element(find.text(_message)));
+        box.requestFocus();
+        await tester.pump();
+
+        expect(box.canRequestFocus, isFalse);
+        expect(box.hasFocus, isFalse);
       });
     });
   });

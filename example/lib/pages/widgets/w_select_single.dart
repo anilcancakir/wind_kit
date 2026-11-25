@@ -14,12 +14,14 @@ class WSelectSingleExamplePage extends StatefulWidget {
 class _WSelectSingleExamplePageState extends State<WSelectSingleExamplePage> {
   String? _fruit;
   String? _country;
+  String? _theme;
+  String? _size;
 
   @override
   Widget build(BuildContext context) {
     return ExampleScaffold(
       title: 'Single-Select',
-      description: 'Default mode of WSelect. Pick one value from a list. Pair searchable: true with longer lists for filtering.',
+      description: 'Default mode of WSelect. Pick one value from a list. Pair searchable: true with longer lists for filtering. Tab to a select and use the arrow keys, Enter and Escape.',
       gradient: 'from-indigo-500 to-blue-600',
       children: [
         ExampleSection(
@@ -77,6 +79,43 @@ class _WSelectSingleExamplePageState extends State<WSelectSingleExamplePage> {
               bg-white dark:bg-slate-800
               shadow-xl border border-slate-200 dark:border-slate-700
             ''',
+          ),
+        ),
+        ExampleSection(
+          title: 'Default Menu Surface',
+          description: 'No menuClassName: the menu follows the theme, so toggle dark mode to see it.',
+          child: WSelect<String>(
+            value: _theme,
+            options: const [
+              SelectOption(value: 'light', label: 'Light'),
+              SelectOption(value: 'dark', label: 'Dark'),
+              SelectOption(value: 'system', label: 'System'),
+            ],
+            onChange: (v) => setState(() => _theme = v),
+            placeholder: 'Pick a theme',
+          ),
+        ),
+        ExampleSection(
+          title: 'Right Edge',
+          description: 'A narrow trigger at the end of the row with a w-64 menu. The menu shifts left to stay inside the window.',
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: WSelect<String>(
+              value: _size,
+              options: const [
+                SelectOption(value: 's', label: 'Small'),
+                SelectOption(value: 'm', label: 'Medium'),
+                SelectOption(value: 'l', label: 'Large'),
+              ],
+              onChange: (v) => setState(() => _size = v),
+              placeholder: 'Size',
+              className: '''
+                w-28 px-3 py-2 rounded-lg
+                bg-white dark:bg-slate-800
+                border border-slate-300 dark:border-slate-600
+              ''',
+              menuClassName: 'w-64',
+            ),
           ),
         ),
       ],

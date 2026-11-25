@@ -1,3 +1,4 @@
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:wind_kit/wind_kit.dart';
@@ -75,6 +76,12 @@ void main() {
         expect(labelled, findsOneWidget);
         expect(tester.getSemantics(labelled).flagsCollection.isButton, isFalse);
         expect(find.bySemanticsLabel('Up'), findsNothing);
+        expect(
+          find.semantics.byPredicate(
+            (SemanticsNode node) => node.flagsCollection.isButton,
+          ),
+          findsNothing,
+        );
       } finally {
         handle.dispose();
       }
@@ -127,6 +134,59 @@ void main() {
         () => WDiv(semanticLabel: 'Status', excludeSemantics: true),
         throwsAssertionError,
       );
+    });
+  });
+
+  group('WDiv semantics inside a flex parent', () {
+    // `flex-1` makes the pipeline return an `Expanded`, a ParentDataWidget that
+    // must sit directly under the `Flex`, so the semantics wrapper has to go
+    // beneath it rather than around it.
+    for (final String flexClass in <String>['flex-1', 'grow', 'flex-auto']) {
+      testWidgets('a labelled $flexClass child of a row builds (#325)', (
+        tester,
+      ) async {
+        final SemanticsHandle handle = tester.ensureSemantics();
+        try {
+          await pumpDiv(
+            tester,
+            WDiv(
+              className: 'flex flex-row',
+              children: [
+                WDiv(
+                  className: flexClass,
+                  semanticLabel: 'Status: operational',
+                  children: const [WText('Up')],
+                ),
+              ],
+            ),
+          );
+
+          expect(tester.takeException(), isNull);
+          expect(find.bySemanticsLabel('Status: operational'), findsOneWidget);
+        } finally {
+          handle.dispose();
+        }
+      });
+    }
+
+    testWidgets('an excluded flex-1 child of a column builds (#325)', (
+      tester,
+    ) async {
+      await pumpDiv(
+        tester,
+        const WDiv(
+          className: 'flex flex-col h-40',
+          children: [
+            WDiv(
+              className: 'flex-1',
+              excludeSemantics: true,
+              children: [WText('Up')],
+            ),
+          ],
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
     });
   });
 

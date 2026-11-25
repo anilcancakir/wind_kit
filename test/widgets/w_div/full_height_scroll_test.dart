@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:wind_kit/src/state/wind_min_width_scroll_scope.dart';
 import 'package:wind_kit/wind_kit.dart';
 
 /// `h-full` below a vertical scroll.
@@ -126,6 +127,50 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(tester.getSize(find.byKey(wide)).width, 300);
       expect(tester.getSize(find.byKey(fill)).height, 160);
+    });
+
+    testWidgets('a padding-only WDiv in between still reports, since it passes '
+        'the unbounded height on (#318)', (tester) async {
+      await pumpScroll(
+        tester,
+        const WDiv(
+          className: 'overflow-y-auto',
+          child: WDiv(
+            className: 'p-4',
+            child: WDiv(className: 'h-full', child: _Probe()),
+          ),
+        ),
+      );
+
+      final Object? error = tester.takeException();
+      expect(error, isA<AssertionError>());
+      expect(error.toString(), contains('flex-1'));
+    });
+
+    testWidgets('re-evaluates when the scroll flag flips in place (#318)', (
+      tester,
+    ) async {
+      // Same tree shape both times, so the render object is updated rather
+      // than rebuilt: the flag has to reach it through `updateRenderObject`.
+      Widget tree({required bool inScroll}) => MaterialApp(
+        home: WindTheme(
+          data: WindThemeData(),
+          child: WindMinWidthScrollScope(
+            verticalUnbounded: inScroll,
+            child: const Column(
+              children: <Widget>[WDiv(className: 'h-full', child: _Probe())],
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(tree(inScroll: true));
+      final Object? error = tester.takeException();
+      expect(error, isA<AssertionError>());
+      expect(error.toString(), contains('flex-1'));
+
+      await tester.pumpWidget(tree(inScroll: false));
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('still asserts under a Column that offers an unbounded height '

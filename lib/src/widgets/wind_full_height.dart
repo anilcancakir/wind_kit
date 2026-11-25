@@ -208,6 +208,9 @@ class _RenderFullHeight extends RenderProxyBox {
         ),
         library: 'wind_kit',
         context: ErrorDescription('while laying out an h-full element'),
+        informationCollector: () => <DiagnosticsNode>[
+          describeForError('The h-full render object was'),
+        ],
       ),
     );
 

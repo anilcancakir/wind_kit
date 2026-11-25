@@ -354,25 +354,6 @@ class WDiv extends StatelessWidget {
       );
     }
 
-    // 10. SEMANTICS (Accessibility Layer)
-    // Outermost, so the label covers the whole decorated box. Emitted only when
-    // requested, and after the hidden early return, so a hidden WDiv stays
-    // unlabelled. Never a button role: the auto WAnchor is gestureless.
-    if (semanticLabel != null) {
-      logger.wrapWith("Semantics", "label: $semanticLabel");
-      WindPerfCounters.recordWrapperEmission('Semantics');
-      finalWidget = Semantics(
-        container: true,
-        label: semanticLabel,
-        excludeSemantics: true,
-        child: finalWidget,
-      );
-    } else if (excludeSemantics) {
-      logger.wrapWith("ExcludeSemantics", "excluding descendants");
-      WindPerfCounters.recordWrapperEmission('ExcludeSemantics');
-      finalWidget = ExcludeSemantics(child: finalWidget);
-    }
-
     // Final: Print debug log if enabled
     logger.printFinalCode();
     return finalWidget;
@@ -2148,6 +2129,29 @@ class WDiv extends StatelessWidget {
       logger.wrapWith("Padding", "${styles.padding}");
       WindPerfCounters.recordWrapperEmission('Padding');
       widgetToBuild = Padding(padding: styles.padding!, child: widgetToBuild);
+    }
+
+    // Apply semantics (`semanticLabel` / `excludeSemantics`).
+    // Inside the margin and the parent-data wrappers below: an `Expanded` must
+    // sit directly under its `Flex`, so a semantics render object may not wrap
+    // it. The hidden early return in `_buildImpl` never reaches here, so a
+    // hidden WDiv stays unlabelled. Never a button role: the auto WAnchor is
+    // gestureless.
+    if (semanticLabel != null) {
+      logger.wrapWith("Semantics", "label: $semanticLabel");
+      WindPerfCounters.recordWrapperEmission('Semantics');
+      widgetToBuild = Semantics(
+        container: true,
+        label: semanticLabel,
+        excludeSemantics: true,
+        child: widgetToBuild ?? const SizedBox.shrink(),
+      );
+    } else if (excludeSemantics) {
+      logger.wrapWith("ExcludeSemantics", "excluding descendants");
+      WindPerfCounters.recordWrapperEmission('ExcludeSemantics');
+      widgetToBuild = ExcludeSemantics(
+        child: widgetToBuild ?? const SizedBox.shrink(),
+      );
     }
 
     // Apply Margin (m-*)

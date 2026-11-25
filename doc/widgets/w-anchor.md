@@ -60,6 +60,8 @@ const WAnchor({
   MouseCursor? mouseCursor,
   String? semanticLabel,
   bool trackFocus = true,
+  FocusNode? focusNode,
+  bool autofocus = false,
 })
 ```
 
@@ -76,7 +78,9 @@ const WAnchor({
 | `states` | `Set<String>?` | `null` | Custom states for dynamic styling (e.g., `{'selected'}`). They reach `WDiv` and `WButton` descendants only, and a `WDiv` sees them only while its className has no `hover:`, `focus:` or `active:` class (such a `WDiv` wraps itself in its own anchor, which shadows this one). `WText` ignores them. |
 | `mouseCursor` | `MouseCursor?` | `null` | Custom cursor. Defaults to click when interactive, basic when disabled, and `MouseCursor.defer` when the anchor has no gesture, so a styling wrapper keeps the cursor of the control around it. |
 | `semanticLabel` | `String?` | `null` | Accessible name for icon-only controls. When set, excludes the child subtree from semantics so the label overrides any child text; prefer it for icon-only controls rather than controls that already expose readable text. |
-| `trackFocus` | `bool` | `true` | Whether a gestureless anchor installs a focus node. `WDiv` passes `false` when its className has no `focus:` class. Ignored when the anchor has a gesture, which always keeps its node. |
+| `trackFocus` | `bool` | `true` | Whether a gestureless anchor installs a focus node. `WDiv` passes `false` when its className has no `focus:` class. Ignored when the anchor has a gesture, which always keeps its node, and when `focusNode` or `autofocus` is given. |
+| `focusNode` | `FocusNode?` | `null` | A node you own, to request, move or read focus from outside. The anchor attaches to it and never disposes it; with `null` it creates and disposes a node of its own. Giving one installs the `Focus` even on a gestureless anchor with `trackFocus: false`. |
+| `autofocus` | `bool` | `false` | Takes focus on the first frame, only when nothing in the focus scope is focused (as `Focus.autofocus`). A disabled anchor ignores it. |
 
 <a name="layout-modes"></a>
 ## Layout Modes
@@ -130,6 +134,23 @@ WAnchor(onTap: play, child: const WText('Play'))
 Only `onTap` is bound. `ActivateIntent` means the primary action and there is no second key for a secondary one, so `onLongPress` and `onDoubleTap` stay pointer-only, exactly as they are on Flutter's own buttons.
 
 An anchor with no `onTap`, or a disabled one, binds nothing and lets the key travel on to whatever is above it. That is narrower than it may look: a `CallbackAction` is always enabled and `ShortcutManager` reports a key handled for any enabled action, so binding unconditionally would have made a long-press-only anchor eat the activation key belonging to the row around it, and on web eat `Space`'s scroll with it, because `Space` maps to `PrioritizedIntents([ActivateIntent, ScrollIntent])` and an always-enabled action wins that race.
+
+### Driving focus from outside
+
+Pass a `focusNode` to request, move or read focus without wrapping the control in an extra `Focus`, which would add a second traversal stop. You create the node and you dispose it; the anchor only listens to it. Swapping the node on a rebuild moves the listener to the new one, and an anchor that created its own node disposes that one when yours replaces it. `focus:` classes and `trackFocus` follow whichever node is in use, and a node that already holds focus styles the first frame.
+
+```dart
+// The state owns the node: create it in initState, dispose it in dispose.
+WAnchor(
+  focusNode: _node,
+  onTap: save,
+  child: const WText('Save'),
+)
+
+_node.requestFocus();
+```
+
+`autofocus` takes focus on the first frame, and only when nothing in the focus scope is focused. A node or `autofocus` also makes a gestureless anchor focusable under another anchor, and `canRequestFocus` stays false while `isDisabled`.
 
 ### One control is one stop
 

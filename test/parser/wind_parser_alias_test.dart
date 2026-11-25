@@ -8,12 +8,21 @@ import 'package:wind_kit/src/widgets/w_div.dart';
 
 /// Wraps [child] in a [WindTheme] carrying the supplied [aliases] so
 /// `WindParser.parse` resolves them through the real `parse()` path.
-Widget wrapWithAliases(Map<String, String> aliases, Widget child) {
+///
+/// [brightness] forces the theme brightness (system sync is switched off so it
+/// sticks); omitted, the theme keeps its defaults.
+Widget wrapWithAliases(
+  Map<String, String> aliases,
+  Widget child, {
+  Brightness? brightness,
+}) {
   return MaterialApp(
     home: WindTheme(
       data: WindThemeData(
         screens: const {'sm': 640, 'md': 768, 'lg': 1024, 'xl': 1280},
         aliases: aliases,
+        brightness: brightness ?? Brightness.light,
+        syncWithSystem: brightness == null,
       ),
       child: Scaffold(body: child),
     ),
@@ -184,6 +193,137 @@ void main() {
       }
 
       expect(logs.any((l) => l.contains("alias 'a' forms a cycle")), isTrue);
+    });
+  });
+
+  group('WindParser alias opacity modifier', () {
+    /// Pumps a theme carrying [aliases] and parses each of [classNames] in
+    /// order through the real `parse()` path, returning the styles.
+    Future<List<WindStyle>> parseAll(
+      WidgetTester tester,
+      Map<String, String> aliases,
+      List<String> classNames, {
+      Brightness? brightness,
+      Set<String>? states,
+    }) async {
+      final styles = <WindStyle>[];
+
+      await tester.pumpWidget(
+        wrapWithAliases(
+          aliases,
+          Builder(
+            builder: (context) {
+              for (final className in classNames) {
+                styles.add(
+                  WindParser.parse(className, context, states: states),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+          brightness: brightness,
+        ),
+      );
+
+      return styles;
+    }
+
+    testWidgets('applies /N to the colour of a bg alias (#324)', (
+      tester,
+    ) async {
+      final styles = await parseAll(
+        tester,
+        const {'bg-brand': 'bg-[#336699]'},
+        const ['bg-brand/50'],
+      );
+
+      expect(styles.single.decoration?.color, const Color(0x80336699));
+    });
+
+    testWidgets('applies /N to the dark: peer in a dark theme (#324)', (
+      tester,
+    ) async {
+      const aliases = {'bg-brand': 'bg-[#336699] dark:bg-[#99ccff]'};
+
+      final dark = await parseAll(tester, aliases, const [
+        'bg-brand/50',
+      ], brightness: Brightness.dark);
+      expect(dark.single.decoration?.color, const Color(0x8099ccff));
+
+      WindParser.clearCache();
+
+      final light = await parseAll(tester, aliases, const [
+        'bg-brand/50',
+      ], brightness: Brightness.light);
+      expect(light.single.decoration?.color, const Color(0x80336699));
+    });
+
+    testWidgets('keeps a state prefix and applies /N to it (#324)', (
+      tester,
+    ) async {
+      final styles = await parseAll(
+        tester,
+        const {'bg-brand': 'bg-[#336699] dark:bg-[#99ccff]'},
+        const ['hover:bg-brand/50'],
+        states: const {'hover'},
+      );
+
+      expect(styles.single.decoration?.color, const Color(0x80336699));
+    });
+
+    testWidgets('leaves non-colour classes of the alias untouched (#324)', (
+      tester,
+    ) async {
+      final styles = await parseAll(
+        tester,
+        const {'label': 'text-lg text-blue-500'},
+        const ['label/50'],
+      );
+
+      final style = styles.single;
+      expect(style.fontSize, WindThemeData().fontSizes['lg']);
+      expect(style.color, isNotNull);
+      expect(style.color!.a, closeTo(0x80 / 255, 0.001));
+      expect(style.heightLine, isNull);
+    });
+
+    testWidgets('caches each /N expansion under its own key (#324)', (
+      tester,
+    ) async {
+      final styles = await parseAll(
+        tester,
+        const {'bg-brand': 'bg-[#336699]'},
+        const ['bg-brand/50', 'bg-brand/20'],
+      );
+
+      expect(styles[0].decoration?.color, isNot(styles[1].decoration?.color));
+      expect(WindParser.cacheSize, 2);
+
+      final plain = await parseAll(
+        tester,
+        const {'bg-brand': 'bg-[#336699]'},
+        const ['bg-brand'],
+      );
+
+      expect(plain.single.decoration?.color, const Color(0xFF336699));
+    });
+
+    testWidgets('ignores /N on an alias with no colour class (#324)', (
+      tester,
+    ) async {
+      final plain = await parseAll(
+        tester,
+        const {'bg-hero': 'bg-cover'},
+        const ['bg-hero'],
+      );
+      WindParser.clearCache();
+      final faded = await parseAll(
+        tester,
+        const {'bg-hero': 'bg-cover'},
+        const ['bg-hero/50'],
+      );
+
+      expect(faded.single.decoration, plain.single.decoration);
     });
   });
 }

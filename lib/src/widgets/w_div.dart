@@ -124,6 +124,25 @@ class WDiv extends StatelessWidget {
   /// [className]. Does NOT participate in the parser cache key.
   final Color? backgroundColor;
 
+  /// The text a screen reader speaks for this container instead of whatever
+  /// its descendants would announce, for a status chip or a value whose
+  /// visible text reads badly aloud.
+  ///
+  /// Publishes one non-interactive node: unlike `WAnchor.semanticLabel` it
+  /// carries no button role, so a `hover:` or `focus:` auto-wrap does not turn
+  /// a display-only container into a control. A hidden `WDiv` publishes
+  /// nothing. Cannot be combined with [excludeSemantics].
+  final String? semanticLabel;
+
+  /// Whether the descendants are dropped from the semantics tree and nothing
+  /// replaces them, for purely decorative content.
+  ///
+  /// Use [semanticLabel] to speak a replacement instead. Cannot be combined
+  /// with [semanticLabel].
+  ///
+  /// Defaults to `false`.
+  final bool excludeSemantics;
+
   /// Creates a new [WDiv] instance.
   const WDiv({
     super.key,
@@ -134,9 +153,16 @@ class WDiv extends StatelessWidget {
     this.states,
     this.scrollPrimary = false,
     this.backgroundColor,
+    this.semanticLabel,
+    this.excludeSemantics = false,
   }) : assert(
          child == null || children == null,
          'WDiv Violation: You cannot provide both `child` and `children`. Please select one strategy.',
+       ),
+       assert(
+         semanticLabel == null || !excludeSemantics,
+         'WDiv Violation: You cannot provide both `semanticLabel` and `excludeSemantics`. '
+         'The label already replaces the descendants; use `excludeSemantics` alone to silence them.',
        );
 
   @override
@@ -326,6 +352,25 @@ class WDiv extends StatelessWidget {
         duration: styles.transitionDuration,
         curve: styles.transitionCurve,
       );
+    }
+
+    // 10. SEMANTICS (Accessibility Layer)
+    // Outermost, so the label covers the whole decorated box. Emitted only when
+    // requested, and after the hidden early return, so a hidden WDiv stays
+    // unlabelled. Never a button role: the auto WAnchor is gestureless.
+    if (semanticLabel != null) {
+      logger.wrapWith("Semantics", "label: $semanticLabel");
+      WindPerfCounters.recordWrapperEmission('Semantics');
+      finalWidget = Semantics(
+        container: true,
+        label: semanticLabel,
+        excludeSemantics: true,
+        child: finalWidget,
+      );
+    } else if (excludeSemantics) {
+      logger.wrapWith("ExcludeSemantics", "excluding descendants");
+      WindPerfCounters.recordWrapperEmission('ExcludeSemantics');
+      finalWidget = ExcludeSemantics(child: finalWidget);
     }
 
     // Final: Print debug log if enabled

@@ -144,7 +144,7 @@ On a viewport wider than `600px` the row fills the container (no horizontal scro
 
 <x-preview path="layout/responsive_table" size="lg" source="example/lib/pages/layout/responsive_table.dart"></x-preview>
 
-> **`h-full` inside a vertical scroll is a layout error.** A child that resolves `h-full` inside an `overflow-y-auto` / `overflow-y-scroll` parent has an unbounded height and produces a cryptic Flutter failure. Wind raises an actionable assert in debug pointing at the fix: use `flex-1` inside a `flex flex-col` (with the scroll on the column) instead of `h-full` inside a vertical scroll. The scroll container itself may still carry `h-full` (it is bounded by its own parent).
+> **`h-full` below a vertical scroll fills the nearest bounded parent.** Under an `overflow-y-auto` / `overflow-y-scroll` parent, `h-full` fills any box that gives it a bounded height: a `WDiv` with a fixed height such as `h-40`, a raw `SizedBox(height: 200)`, or a `Positioned.fill` inside a sized `Stack`. Only two shapes still have an unbounded height: `h-full` as a direct child of the scroll, and `h-full` under a `flex flex-col` (a `Column` offers an unbounded height). Wind reports those two in debug with an actionable error that points at the fix: use `flex-1` inside a `flex flex-col` (with the scroll on the column). Release builds drop the report and lay out against the screen height. The scroll container itself may still carry `h-full` (it is bounded by its own parent).
 
 <a name="responsive-design"></a>
 ## Responsive Design

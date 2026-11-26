@@ -787,8 +787,9 @@ void main() {
         expect(find.text('Save'), findsOneWidget);
       });
 
-      // The unpainted child sits on top of the spinner, and `Opacity(0)` does
-      // not stop hit testing, so a gesture handler inside it used to fire.
+      // The unpainted child sits on top of the spinner and `Opacity(0)` does
+      // not stop hit testing, so only the `AbsorbPointer` around a
+      // non-interactive button keeps a tap off the child.
       testWidgets('keeps a tap off the unpainted child while loading (#321)', (
         tester,
       ) async {

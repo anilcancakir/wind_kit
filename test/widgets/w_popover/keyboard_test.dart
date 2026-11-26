@@ -567,33 +567,37 @@ void main() {
         },
       );
 
-      testWidgets('a touch open on a phone leaves a focused field alone', (
-        tester,
-      ) async {
-        await tester.pumpWidget(
-          wrapWithTheme(
-            Column(children: [const TextField(autofocus: true), popover()]),
-          ),
-        );
-        await tester.pump();
-        expect(
-          FocusManager.instance.primaryFocus?.context
-              ?.findAncestorWidgetOfExactType<EditableText>(),
-          isNotNull,
-        );
+      // Native only: on the web a touch open focuses the trigger by design,
+      // as a browser drops a field's focus on any outside touch anyway.
+      testWidgets(
+        'a touch open on a phone leaves a focused field alone',
+        skip: isBrowser,
+        (tester) async {
+          await tester.pumpWidget(
+            wrapWithTheme(
+              Column(children: [const TextField(autofocus: true), popover()]),
+            ),
+          );
+          await tester.pump();
+          expect(
+            FocusManager.instance.primaryFocus?.context
+                ?.findAncestorWidgetOfExactType<EditableText>(),
+            isNotNull,
+          );
 
-        // A touch outside a field keeps its focus and its keyboard on a
-        // phone, so opening a popover beside it must not take either.
-        await tester.tap(find.text('Trigger'));
-        await tester.pumpAndSettle();
+          // A touch outside a field keeps its focus and its keyboard on a
+          // phone, so opening a popover beside it must not take either.
+          await tester.tap(find.text('Trigger'));
+          await tester.pumpAndSettle();
 
-        expect(find.text('Content'), findsOneWidget);
-        expect(
-          FocusManager.instance.primaryFocus?.context
-              ?.findAncestorWidgetOfExactType<EditableText>(),
-          isNotNull,
-        );
-      });
+          expect(find.text('Content'), findsOneWidget);
+          expect(
+            FocusManager.instance.primaryFocus?.context
+                ?.findAncestorWidgetOfExactType<EditableText>(),
+            isNotNull,
+          );
+        },
+      );
 
       testWidgets('a pointer open lights no focus: class (#347)', (
         tester,

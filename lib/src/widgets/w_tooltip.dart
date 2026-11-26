@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -77,11 +78,26 @@ class _WTooltipState extends State<WTooltip> {
 
   final GlobalKey<RawTooltipState> _tooltipKey = GlobalKey<RawTooltipState>();
 
-  /// Whether the current focus showed the tooltip, so a blur hides tooltips
-  /// only after a focus opened one. Escape or a pointer press can close it
-  /// first and leave the flag set; the next blur then dismisses whatever is
-  /// open, which [RawTooltip.dismissAllToolTips] cannot narrow to this one.
+  /// Whether this tooltip is open because focus showed it. A blur dismisses
+  /// only while it is set, because [RawTooltip.dismissAllToolTips] cannot
+  /// narrow to one instance and also closes any other tooltip open at that
+  /// moment. The open overlay clears it through [_handleClosed] when it starts
+  /// to close, whoever closed it (Escape, a pointer press, the pointer
+  /// leaving), so a blur after that never reaches another tooltip.
   bool _shownByFocus = false;
+
+  /// Whether a mouse pointer is over the child or the open box. A blur never
+  /// hides a tooltip the pointer is still over, whichever of hover and focus
+  /// came first: the tooltip then ends with the pointer, as [RawTooltip] does.
+  bool _overChild = false;
+  bool _overBox = false;
+
+  /// Whether the message overflows the capped box and scrolls. [RawTooltip]
+  /// dismisses on any pointer press it does not own, which includes the one
+  /// that starts a drag inside the box, so tap dismissal is off while this is
+  /// set. The tooltip still hides on pointer exit, after the touch delay, on
+  /// blur and on Escape.
+  bool _scrollable = false;
 
   @override
   Widget build(BuildContext context) {
@@ -90,6 +106,7 @@ class _WTooltipState extends State<WTooltip> {
       semanticsTooltip: widget.message,
       hoverDelay: widget.hoverDelay,
       triggerMode: TooltipTriggerMode.longPress,
+      enableTapToDismiss: !_scrollable,
       ignorePointer: false,
       positionDelegate: _position,
       tooltipBuilder: _buildTooltip,
@@ -98,7 +115,11 @@ class _WTooltipState extends State<WTooltip> {
         skipTraversal: true,
         includeSemantics: false,
         onFocusChange: _onFocusChange,
-        child: widget.child,
+        child: MouseRegion(
+          onEnter: (_) => _overChild = true,
+          onExit: (_) => _overChild = false,
+          child: widget.child,
+        ),
       ),
     );
   }
@@ -110,7 +131,9 @@ class _WTooltipState extends State<WTooltip> {
     if (!hasFocus) {
       if (_shownByFocus) {
         _shownByFocus = false;
-        RawTooltip.dismissAllToolTips();
+        if (!_overChild && !_overBox) {
+          RawTooltip.dismissAllToolTips();
+        }
       }
       return;
     }
@@ -195,50 +218,116 @@ class _WTooltipState extends State<WTooltip> {
     );
   }
 
+  void _handleClosed() {
+    _shownByFocus = false;
+    _overBox = false;
+  }
+
+  /// Runs after the frame that laid the message out, so [setState] is safe.
+  bool _handleScrollMetrics(ScrollMetricsNotification notification) {
+    final bool scrollable = notification.metrics.maxScrollExtent > 0;
+    if (mounted && scrollable != _scrollable) {
+      setState(() => _scrollable = scrollable);
+    }
+
+    return false;
+  }
+
+  /// The box is capped at the overlay height less a margin on each side, so
+  /// [_position] can always keep it on screen, and a longer message scrolls.
+  /// The scroll view is not primary, so it never attaches to the page's
+  /// [PrimaryScrollController]. [ExcludeFocus] keeps a `focus:` className on
+  /// the box from adding a Tab stop, as the tooltip never takes focus.
   Widget _buildTooltip(BuildContext context, Animation<double> animation) {
-    return _EscapeDismissal(
-      child: FadeTransition(
-        opacity: animation,
-        child: WDiv(
-          className: widget.className ?? _defaultClassName,
-          child: WText(widget.message),
+    return _OpenTooltip(
+      animation: animation,
+      onClosed: _handleClosed,
+      child: MouseRegion(
+        onEnter: (_) => _overBox = true,
+        onExit: (_) => _overBox = false,
+        child: ExcludeFocus(
+          child: FadeTransition(
+            opacity: animation,
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                return ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: math.max(
+                      0.0,
+                      constraints.maxHeight - _margin * 2,
+                    ),
+                  ),
+                  child: WDiv(
+                    className: widget.className ?? _defaultClassName,
+                    child: NotificationListener<ScrollMetricsNotification>(
+                      onNotification: _handleScrollMetrics,
+                      child: SingleChildScrollView(
+                        primary: false,
+                        child: WText(widget.message),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-/// Dismisses every open tooltip on Escape for as long as it is mounted, on the
-/// Flutter versions whose [RawTooltip] does not do it itself (before 3.50). It
-/// sits in the overlay child, which exists only while a tooltip shows, so
+/// Marks the overlay child of one tooltip, which exists only while it shows,
+/// and dismisses every open tooltip on Escape for as long as it is mounted, on
+/// the Flutter versions whose [RawTooltip] does not do it itself (before 3.50).
 /// Escape is left alone otherwise and reaches the app's own shortcuts.
+///
+/// [onClosed] fires when the tooltip starts to hide, or at once when the
+/// overlay child is removed, so the owner never believes a closing tooltip is
+/// still open.
 ///
 /// The early [FocusManager] handler runs before the focus tree, so returning
 /// [KeyEventResult.handled] keeps one Escape from also closing a dialog or
 /// reaching the focused widget. The [HardwareKeyboard] handler covers the case
 /// where nothing has primary focus, which the focus manager never sees.
-class _EscapeDismissal extends StatefulWidget {
+class _OpenTooltip extends StatefulWidget {
+  final Animation<double> animation;
+  final VoidCallback onClosed;
   final Widget child;
 
-  const _EscapeDismissal({required this.child});
+  const _OpenTooltip({
+    required this.animation,
+    required this.onClosed,
+    required this.child,
+  });
 
   @override
-  State<_EscapeDismissal> createState() => _EscapeDismissalState();
+  State<_OpenTooltip> createState() => _OpenTooltipState();
 }
 
-class _EscapeDismissalState extends State<_EscapeDismissal> {
+class _OpenTooltipState extends State<_OpenTooltip> {
   @override
   void initState() {
     super.initState();
+    widget.animation.addStatusListener(_handleStatus);
     FocusManager.instance.addEarlyKeyEventHandler(_handleEarlyKeyEvent);
     HardwareKeyboard.instance.addHandler(_handleHardwareKeyEvent);
   }
 
   @override
   void dispose() {
+    widget.animation.removeStatusListener(_handleStatus);
     FocusManager.instance.removeEarlyKeyEventHandler(_handleEarlyKeyEvent);
     HardwareKeyboard.instance.removeHandler(_handleHardwareKeyEvent);
+    widget.onClosed();
     super.dispose();
+  }
+
+  void _handleStatus(AnimationStatus status) {
+    if (status == AnimationStatus.reverse ||
+        status == AnimationStatus.dismissed) {
+      widget.onClosed();
+    }
   }
 
   static bool _isEscape(KeyEvent event) {

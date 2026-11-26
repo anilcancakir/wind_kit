@@ -16,7 +16,7 @@ paths:
 
 `WDiv` wraps itself in `WAnchor` when its className contains `hover:`, `focus:` or `active:`, and `WButton` always does. A new widget that needs state from a className prefix follows `WDiv` (a `Builder` below the anchor, then `WindAnchorStateProvider.of(innerContext)`): the widget's own context sits above the anchor's provider, so a lookup from it never sees the anchor's state, and bypassing `WAnchor` leaves the prefixes inert.
 
-A widget built on `WAnchor` exposes `semanticLabel: String?` and forwards it to `WAnchor`, as `WButton` does. An icon-only control has no visible text to take its label from.
+A widget built on `WAnchor` exposes `semanticLabel: String?` and forwards it to `WAnchor`, as `WButton` does. An icon-only control has no visible text to take its label from. `WDiv` is the exception: it does not forward `semanticLabel` to a `WAnchor`, because `WAnchor.semanticLabel` publishes a button role. `WDiv.semanticLabel` wraps the finished box in one non-interactive labelled node that replaces its descendants' semantics; `excludeSemantics` drops them instead, and passing both fails an assertion.
 
 ## Debug logger
 

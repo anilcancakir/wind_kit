@@ -1155,6 +1155,18 @@ class WDiv extends StatelessWidget {
     }
   }
 
+  /// Extracts the explicit base [WindStyle] from any Wind widget via dynamic
+  /// access; a widget whose `style` is another type (a `TextStyle`) yields null.
+  static WindStyle? _extractChildStyle(Widget child) {
+    try {
+      final dynamic windChild = child;
+      final Object? style = windChild.style;
+      return style is WindStyle ? style : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Extracts `states` from any Wind widget via dynamic access.
   static Set<String>? _extractChildStates(Widget child) {
     try {
@@ -1358,18 +1370,13 @@ class WDiv extends StatelessWidget {
           children: [
             for (var i = 0; i < children!.length; i++)
               SizedBox(
-                // A grid narrower than its gaps has no column width: collapse
-                // every cell to zero, as WindEqualHeightRow does, rather than
-                // leaving it at its natural width.
-                width: itemWidth > 0
-                    ? _spanWidth(
-                        spans?[i] ?? 1,
-                        cols,
-                        itemWidth,
-                        gapX,
-                        availableWidth,
-                      )
-                    : 0,
+                width: _spanWidth(
+                  spans?[i] ?? 1,
+                  cols,
+                  itemWidth,
+                  gapX,
+                  availableWidth,
+                ),
                 child: children![i],
               ),
           ],
@@ -1384,8 +1391,10 @@ class WDiv extends StatelessWidget {
   /// parse. Only a child whose className mentions `col-span-`, once the theme
   /// aliases are expanded, is parsed, with the build [context] so
   /// `md:col-span-2` resolves by breakpoint and an ancestor anchor's
-  /// `hover`, `focus` and `disabled` flags apply, as they do to the child; a
-  /// child that exposes no className keeps one column.
+  /// `hover`, `focus` and `disabled` flags apply, as they do to the child. The
+  /// child's explicit `style` is the base, so it can carry a span of its own
+  /// and a literal `col-span-*` class still overrides it, as in [build]; a
+  /// child that exposes neither keeps one column.
   ///
   /// The anchor's custom states are merged into the child's own, because
   /// [WindContext.build] reads only the three flags. A child with `hover:` or
@@ -1400,13 +1409,17 @@ class WDiv extends StatelessWidget {
     List<int>? spans;
     for (var i = 0; i < children!.length; i++) {
       final className = _extractChildClassName(children![i]);
-      if (className == null) continue;
-      if (!expandAliases(className, aliases).contains('col-span-')) continue;
-      final colSpan = WindParser.parse(
-        className,
-        context,
-        states: {...?_extractChildStates(children![i]), ...?inheritedStates},
-      ).gridColSpan;
+      final baseStyle = _extractChildStyle(children![i]);
+      int? colSpan = baseStyle?.gridColSpan;
+      if (className != null &&
+          expandAliases(className, aliases).contains('col-span-')) {
+        colSpan = WindParser.parse(
+          className,
+          context,
+          baseStyle: baseStyle,
+          states: {...?_extractChildStates(children![i]), ...?inheritedStates},
+        ).gridColSpan;
+      }
       if (colSpan == null) continue;
       spans ??= List<int>.filled(children!.length, 1);
       spans[i] = colSpan.clamp(1, cols);
@@ -1416,7 +1429,11 @@ class WDiv extends StatelessWidget {
 
   /// Width of a cell spanning [span] of [cols] columns. A full-row span takes
   /// [availableWidth] exactly: rebuilding it from `cols * itemWidth + gaps`
-  /// could land a hair over and make the Wrap push the cell onto its own line.
+  /// could land a hair over and make the Wrap push the cell onto its own line,
+  /// and it stays the row when the gaps are wider than the row. A grid narrower
+  /// than its gaps has no column width ([itemWidth] is not positive), so every
+  /// other cell collapses to zero, as `WindEqualHeightRow` does, rather than
+  /// keeping its natural width.
   static double _spanWidth(
     int span,
     int cols,
@@ -1425,6 +1442,7 @@ class WDiv extends StatelessWidget {
     double availableWidth,
   ) {
     if (span >= cols) return availableWidth;
+    if (itemWidth <= 0) return 0;
     return span * itemWidth + (span - 1) * gapX;
   }
 

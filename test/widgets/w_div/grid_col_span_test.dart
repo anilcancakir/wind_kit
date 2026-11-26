@@ -180,7 +180,7 @@ void main() {
               children: [
                 WDiv(
                   key: const Key('a'),
-                  className: 'col-span-full',
+                  className: 'col-span-2',
                   child: const SizedBox(width: 100, height: 50),
                 ),
                 WDiv(
@@ -375,6 +375,92 @@ void main() {
           );
 
           expect(tester.getSize(at('a')).width, 192);
+        },
+      );
+    }
+  });
+
+  group('col-span edge cases', () {
+    for (final (label, extra) in paths) {
+      testWidgets(
+        'a full-row span fills a row narrower than its gaps on the $label '
+        'path (#328)',
+        (tester) async {
+          await tester.pumpWidget(
+            wrapWithTheme(
+              WDiv(
+                className: 'grid grid-cols-4 gap-[40px]$extra',
+                children: [
+                  WDiv(
+                    key: const Key('a'),
+                    className: 'col-span-full',
+                    child: const SizedBox(width: 10, height: 50),
+                  ),
+                  cell('b', null),
+                ],
+              ),
+              width: 100,
+            ),
+          );
+
+          expect(tester.takeException(), isNull);
+          expect(tester.getSize(at('a')).width, 100);
+          expect(tester.getSize(at('b')).width, 0);
+        },
+      );
+
+      testWidgets(
+        'a span from the child style spans on the $label path (#328)',
+        (tester) async {
+          await tester.pumpWidget(
+            wrapWithTheme(
+              WDiv(
+                className: 'grid grid-cols-4 gap-4$extra',
+                children: [
+                  WDiv(
+                    key: const Key('a'),
+                    style: const WindStyle(gridColSpan: 2),
+                    child: const SizedBox(height: 50),
+                  ),
+                  WDiv(
+                    key: const Key('b'),
+                    className: 'bg-red-500 dark:bg-red-600',
+                    style: const WindStyle(gridColSpan: 2),
+                    child: const SizedBox(height: 50),
+                  ),
+                ],
+              ),
+              width: 400,
+            ),
+          );
+
+          expect(tester.getSize(at('a')).width, 192);
+          expect(tester.getSize(at('b')).width, 192);
+        },
+      );
+
+      testWidgets(
+        'a literal col-span overrides the child style span on the $label '
+        'path (#328)',
+        (tester) async {
+          await tester.pumpWidget(
+            wrapWithTheme(
+              WDiv(
+                className: 'grid grid-cols-4 gap-4$extra',
+                children: [
+                  WDiv(
+                    key: const Key('a'),
+                    className: 'col-span-1',
+                    style: const WindStyle(gridColSpan: 2),
+                    child: const SizedBox(height: 50),
+                  ),
+                ],
+              ),
+              width: 400,
+            ),
+          );
+
+          expect(tester.getSize(at('a')).width, 88);
         },
       );
     }

@@ -124,6 +124,25 @@ class WDiv extends StatelessWidget {
   /// [className]. Does NOT participate in the parser cache key.
   final Color? backgroundColor;
 
+  /// The text a screen reader speaks for this container instead of whatever
+  /// its descendants would announce, for a status chip or a value whose
+  /// visible text reads badly aloud.
+  ///
+  /// Publishes one non-interactive node: unlike `WAnchor.semanticLabel` it
+  /// carries no button role, so a `hover:` or `focus:` auto-wrap does not turn
+  /// a display-only container into a control. A hidden `WDiv` publishes
+  /// nothing. Cannot be combined with [excludeSemantics].
+  final String? semanticLabel;
+
+  /// Whether the descendants are dropped from the semantics tree and nothing
+  /// replaces them, for purely decorative content.
+  ///
+  /// Use [semanticLabel] to speak a replacement instead. Cannot be combined
+  /// with [semanticLabel].
+  ///
+  /// Defaults to `false`.
+  final bool excludeSemantics;
+
   /// Creates a new [WDiv] instance.
   const WDiv({
     super.key,
@@ -134,9 +153,16 @@ class WDiv extends StatelessWidget {
     this.states,
     this.scrollPrimary = false,
     this.backgroundColor,
+    this.semanticLabel,
+    this.excludeSemantics = false,
   }) : assert(
          child == null || children == null,
          'WDiv Violation: You cannot provide both `child` and `children`. Please select one strategy.',
+       ),
+       assert(
+         semanticLabel == null || !excludeSemantics,
+         'WDiv Violation: You cannot provide both `semanticLabel` and `excludeSemantics`. '
+         'The label already replaces the descendants; use `excludeSemantics` alone to silence them.',
        );
 
   @override
@@ -1954,17 +1980,6 @@ class WDiv extends StatelessWidget {
       final WindMinWidthScrollScope? scrollScope =
           WindMinWidthScrollScope.maybeOf(context);
 
-      // Actionable dev-time guard (stripped in release): `h-full` inside a
-      // vertical scroll resolves to an unbounded height and yields a cryptic
-      // Flutter failure. Point the developer at the `flex-1` fix instead.
-      assert(
-        !(isFullHeight && (scrollScope?.verticalUnbounded ?? false)),
-        'Wind: `h-full` on a child inside a vertical scroll '
-        '(overflow-y-auto/overflow-y-scroll) resolves to an unbounded height. '
-        'Use `flex-1` inside a `flex flex-col` (with the scroll on the column) '
-        'instead of `h-full` inside a vertical scroll.',
-      );
-
       // Fast path: width-only sizing (no heightFactor), avoids LayoutBuilder
       // Covers: w-full, w-full max-w-*, w-1/2, w-1/3, etc.
       if (styles.heightFactor == null) {
@@ -2034,6 +2049,7 @@ class WDiv extends StatelessWidget {
             maxHeight: hasMaxHeightConstraint
                 ? styles.constraints!.maxHeight
                 : null,
+            insideVerticalScroll: scrollScope?.verticalUnbounded ?? false,
             child: innerChild,
           );
         } else {
@@ -2076,8 +2092,28 @@ class WDiv extends StatelessWidget {
             maxHeight: hasMaxHeightConstraint
                 ? styles.constraints!.maxHeight
                 : null,
+            insideVerticalScroll: scrollScope?.verticalUnbounded ?? false,
             child: innerChild,
           );
+
+          // `w-full` inside a horizontal scroll: the width is unbounded, which
+          // the box above cannot take a fraction of, so the viewport width is
+          // threaded in the way the width-only branch does it, but only when
+          // the parent leaves the width unbounded: a parent that gave one is
+          // filled as before. No port means no scroll, so nothing to add.
+          if (isFullWidth && scrollScope?.horizontalPort != null) {
+            logger.wrapWith("WindMinWidthBox", "w-full in horizontal scroll");
+            WindPerfCounters.recordWrapperEmission('WindMinWidthBox');
+            widgetToBuild = WindMinWidthBox(
+              port: scrollScope!.horizontalPort!,
+              floorMinWidth: styles.constraints?.minWidth ?? 0,
+              yieldToBoundedWidth: true,
+              maxWidth: hasMaxWidthConstraint
+                  ? styles.constraints!.maxWidth
+                  : null,
+              child: widgetToBuild,
+            );
+          }
         } else {
           // Both fractional, neither h-full: FractionallySizedBox handles it
           logger.wrapWith("FractionallySizedBox", "w+h fraction");
@@ -2112,6 +2148,29 @@ class WDiv extends StatelessWidget {
       logger.wrapWith("Padding", "${styles.padding}");
       WindPerfCounters.recordWrapperEmission('Padding');
       widgetToBuild = Padding(padding: styles.padding!, child: widgetToBuild);
+    }
+
+    // Apply semantics (`semanticLabel` / `excludeSemantics`).
+    // Inside the margin and the parent-data wrappers below: an `Expanded` must
+    // sit directly under its `Flex`, so a semantics render object may not wrap
+    // it. The hidden early return in `_buildImpl` never reaches here, so a
+    // hidden WDiv stays unlabelled. Never a button role: the auto WAnchor is
+    // gestureless.
+    if (semanticLabel != null) {
+      logger.wrapWith("Semantics", "label: $semanticLabel");
+      WindPerfCounters.recordWrapperEmission('Semantics');
+      widgetToBuild = Semantics(
+        container: true,
+        label: semanticLabel,
+        excludeSemantics: true,
+        child: widgetToBuild ?? const SizedBox.shrink(),
+      );
+    } else if (excludeSemantics) {
+      logger.wrapWith("ExcludeSemantics", "excluding descendants");
+      WindPerfCounters.recordWrapperEmission('ExcludeSemantics');
+      widgetToBuild = ExcludeSemantics(
+        child: widgetToBuild ?? const SizedBox.shrink(),
+      );
     }
 
     // Apply Margin (m-*)

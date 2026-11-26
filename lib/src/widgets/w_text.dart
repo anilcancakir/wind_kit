@@ -85,6 +85,14 @@ class WText extends StatelessWidget {
   /// from [className]. Does NOT participate in the parser cache key.
   final Color? foregroundColor;
 
+  /// An alternative label for assistive technology, spoken in place of
+  /// [data], as [Text.semanticsLabel] does.
+  ///
+  /// Use it when the visible string reads badly aloud (`3 min` for
+  /// `3 minutes`). Forwarded to both [Text] and [SelectableText]; a hidden
+  /// `WText` renders nothing and publishes no label.
+  final String? semanticsLabel;
+
   const WText(
     this.data, {
     super.key,
@@ -94,6 +102,7 @@ class WText extends StatelessWidget {
     this.selectable = false,
     this.states,
     this.foregroundColor,
+    this.semanticsLabel,
   });
 
   @override
@@ -245,6 +254,7 @@ class WText extends StatelessWidget {
         style: finalTextStyle,
         textAlign: styles.textAlign,
         maxLines: styles.maxLines,
+        semanticsLabel: semanticsLabel,
         // SelectableText doesn't support overflow directly in the same way
       );
     } else {
@@ -256,6 +266,7 @@ class WText extends StatelessWidget {
         overflow: styles.textOverflow,
         maxLines: styles.maxLines,
         softWrap: styles.softWrap,
+        semanticsLabel: semanticsLabel,
       );
     }
 

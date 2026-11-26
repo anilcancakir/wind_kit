@@ -159,4 +159,84 @@ void main() {
       expect(paddingFinder, findsWidgets);
     });
   });
+
+  group('WText semanticsLabel', () {
+    setUp(() {
+      WindParser.clearCache();
+    });
+
+    Future<void> pumpText(WidgetTester tester, WText text) {
+      return tester.pumpWidget(
+        MaterialApp(
+          home: WindTheme(data: WindThemeData(), child: text),
+        ),
+      );
+    }
+
+    testWidgets('replaces the spoken text of a Text (#325)', (tester) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      try {
+        await pumpText(
+          tester,
+          const WText('3 min', semanticsLabel: '3 minutes'),
+        );
+
+        expect(find.bySemanticsLabel('3 minutes'), findsOneWidget);
+        expect(find.bySemanticsLabel('3 min'), findsNothing);
+      } finally {
+        handle.dispose();
+      }
+    });
+
+    testWidgets('replaces the spoken text of a SelectableText (#325)', (
+      tester,
+    ) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      try {
+        await pumpText(
+          tester,
+          const WText('3 min', selectable: true, semanticsLabel: '3 minutes'),
+        );
+
+        expect(find.bySemanticsLabel('3 minutes'), findsOneWidget);
+        expect(find.bySemanticsLabel('3 min'), findsNothing);
+      } finally {
+        handle.dispose();
+      }
+    });
+
+    testWidgets('speaks the text itself without a semanticsLabel (#325)', (
+      tester,
+    ) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      try {
+        await pumpText(tester, const WText('3 min'));
+
+        expect(find.bySemanticsLabel('3 min'), findsOneWidget);
+      } finally {
+        handle.dispose();
+      }
+    });
+
+    testWidgets('publishes no label node for a hidden WText (#325)', (
+      tester,
+    ) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      try {
+        await pumpText(
+          tester,
+          const WText(
+            '3 min',
+            className: 'hidden',
+            semanticsLabel: '3 minutes',
+          ),
+        );
+
+        expect(find.bySemanticsLabel('3 minutes'), findsNothing);
+        expect(find.byType(SizedBox), findsOneWidget);
+      } finally {
+        handle.dispose();
+      }
+    });
+  });
 }

@@ -71,6 +71,29 @@ class OverflowBasicExamplePage extends StatelessWidget {
           ),
         ),
         ExampleSection(
+          title: 'Fill Below a Scroll',
+          description: 'h-full fills any bounded parent below a vertical scroll, here an h-40 box. With no bounded parent, put flex flex-col h-full on the outer parent and flex-1 overflow-y-auto on its body.',
+          child: WDiv(
+            className: '''
+              overflow-y-auto h-64 p-4 rounded-lg
+              bg-slate-100 dark:bg-slate-800
+            ''',
+            child: WDiv(
+              className: 'h-40',
+              child: WDiv(
+                className: '''
+                  h-full flex items-center justify-center rounded-lg
+                  bg-purple-500 dark:bg-purple-600
+                ''',
+                child: WText(
+                  'h-full fills the 160 px parent',
+                  className: 'text-sm text-white dark:text-white',
+                ),
+              ),
+            ),
+          ),
+        ),
+        ExampleSection(
           title: 'Quick Reference',
           description:
               'Four keywords map to two Flutter idioms: clip vs scroll.',

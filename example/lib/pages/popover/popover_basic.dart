@@ -127,6 +127,7 @@ class PopoverBasicExamplePage extends StatelessWidget {
           description:
               'Bigger contentBuilder with a list of dismissible items.',
           child: WPopover(
+            semanticLabel: 'Notifications',
             className: '''
               w-80 rounded-xl p-3
               bg-white dark:bg-slate-800
@@ -154,6 +155,53 @@ class PopoverBasicExamplePage extends StatelessWidget {
                 _NotifRow(label: 'New comment on your post'),
                 _NotifRow(label: 'Build #423 passed'),
                 _NotifRow(label: 'New follower: @jane'),
+              ],
+            ),
+          ),
+        ),
+        ExampleSection(
+          title: 'Pinned Panel (closeOnOutsideTap)',
+          description:
+              'closeOnOutsideTap: false keeps the panel open on an outside tap. '
+              'The trigger, Escape and close still dismiss it.',
+          child: WPopover(
+            closeOnOutsideTap: false,
+            className: '''
+              w-72 rounded-xl p-3
+              bg-white dark:bg-slate-800
+              shadow-2xl border border-slate-200 dark:border-slate-700
+            ''',
+            triggerBuilder: (context, isOpen, isHovering) => WButton(
+              onTap: () {},
+              className: '''
+                bg-purple-600 hover:bg-purple-700
+                text-white px-4 py-2 rounded-lg duration-200
+              ''',
+              child: const WText(
+                'Pin Panel',
+                className: 'text-white font-medium',
+              ),
+            ),
+            contentBuilder: (context, close) => WDiv(
+              className: 'flex flex-col gap-3',
+              children: [
+                WText(
+                  'Tap outside: the panel stays open.',
+                  className: 'text-sm text-slate-700 dark:text-slate-200',
+                ),
+                WButton(
+                  onTap: close,
+                  className: '''
+                    px-3 py-2 rounded-lg duration-200
+                    bg-slate-100 hover:bg-slate-200
+                    dark:bg-slate-700 dark:hover:bg-slate-600
+                  ''',
+                  child: const WText(
+                    'Close',
+                    className:
+                        'text-sm font-medium text-slate-900 dark:text-white',
+                  ),
+                ),
               ],
             ),
           ),

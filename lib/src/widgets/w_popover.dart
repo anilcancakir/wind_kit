@@ -210,6 +210,14 @@ class WPopover extends StatefulWidget {
   /// `WDiv`) or a null/empty `onTap` for a pure popover trigger.
   final bool enableTriggerOnTap;
 
+  /// Accessible name of the trigger, for a trigger with no visible text such
+  /// as an icon-only bell or avatar.
+  ///
+  /// Names the trigger's button node when [enableTriggerOnTap] is `true`. With
+  /// `false` the popover adds no node of its own, so the caller labels its own
+  /// trigger and this value is ignored.
+  final String? semanticLabel;
+
   /// Where to position the popover relative to the trigger.
   ///
   /// Default: [PopoverAlignment.bottomLeft]
@@ -266,6 +274,13 @@ class WPopover extends StatefulWidget {
   /// Set to `true` for simple menus where any tap should close.
   final bool closeOnContentTap;
 
+  /// Whether a tap outside the panel closes the popover.
+  ///
+  /// Default: `true`. With `false` the panel stays open on an outside tap and
+  /// still closes through the [controller], the trigger, Escape and the
+  /// `close` callback of [contentBuilder].
+  final bool closeOnOutsideTap;
+
   /// Callback when popover opens
   final VoidCallback? onOpen;
 
@@ -287,6 +302,7 @@ class WPopover extends StatefulWidget {
     required this.contentBuilder,
     this.controller,
     this.enableTriggerOnTap = true,
+    this.semanticLabel,
     this.alignment = PopoverAlignment.bottomLeft,
     this.className,
     this.offset = const Offset(0, 4),
@@ -295,6 +311,7 @@ class WPopover extends StatefulWidget {
     this.maxWidth,
     this.disabled = false,
     this.closeOnContentTap = false,
+    this.closeOnOutsideTap = true,
     this.onOpen,
     this.onClose,
     this.autoFlip = true,
@@ -888,6 +905,8 @@ class _WPopoverState extends State<WPopover> {
         child: Semantics(
           button: true,
           enabled: !widget.disabled,
+          label: widget.semanticLabel,
+          expanded: _isOpen,
           onTap: widget.disabled ? null : toggle,
           child: Listener(
             onPointerDown: (event) {
@@ -1053,7 +1072,9 @@ class _WPopoverState extends State<WPopover> {
         heightFactor: 1,
         child: TapRegion(
           groupId: _tapRegionGroupId,
-          onTapOutside: (_) => _handleTapOutside(),
+          onTapOutside: widget.closeOnOutsideTap
+              ? (_) => _handleTapOutside()
+              : null,
           child: GestureDetector(
             onTap: widget.closeOnContentTap ? close : null,
             behavior: HitTestBehavior.translucent,

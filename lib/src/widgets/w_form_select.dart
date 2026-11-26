@@ -115,9 +115,11 @@ class WFormSelect<T> extends FormField<T> {
 
   /// The selected value.
   ///
-  /// A change between rebuilds replaces the field's value, so the parent can
-  /// drive the select without a key that remounts it (and drops its focus).
-  /// A pick the parent does not echo back stays until this value changes.
+  /// A change between rebuilds, compared with `==`, replaces the field's value
+  /// and re-runs a validator whose error is showing, so the parent can drive
+  /// the select without a key that remounts it (and drops its focus). A pick
+  /// the parent does not echo back stays until this value changes; a `T`
+  /// without value equality built fresh each frame counts as a change.
   final T? value;
 
   @override
@@ -220,9 +222,11 @@ class _WFormSelectState<T> extends FormFieldState<T> {
   @override
   void didUpdateWidget(covariant WFormSelect<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.value != widget.value) {
-      setValue(widget.value);
-    }
+    if (oldWidget.value == widget.value) return;
+
+    setValue(widget.value);
+    // An error shown for the old value would sit next to the new one.
+    if (hasError) validate();
   }
 }
 
@@ -474,8 +478,11 @@ class WFormMultiSelect<T> extends FormField<List<T>> {
 
   /// The selected values.
   ///
-  /// A change in content between rebuilds replaces the field's values; a new
-  /// list with the same items in the same order is not a change.
+  /// A change in content between rebuilds replaces the field's values and
+  /// re-runs a validator whose error is showing; a new list with the same
+  /// items in the same order is not a change, null counts as empty, and a
+  /// list the parent edits in place is compared against a copy of its last
+  /// contents.
   final List<T>? values;
 
   @override
@@ -568,21 +575,37 @@ class WFormMultiSelect<T> extends FormField<List<T>> {
   final String errorClassName;
 }
 
-/// Internal widget for WFormMultiSelect.
 /// Syncs the field when the parent's [WFormMultiSelect.values] change.
+///
+/// Compares against a copy of the last values the parent passed rather than
+/// `oldWidget.values`: a parent that edits its list in place hands over the
+/// same object twice, so the two would always match.
 class _WFormMultiSelectState<T> extends FormFieldState<List<T>> {
+  late List<T> _parentValues;
+
   @override
   WFormMultiSelect<T> get widget => super.widget as WFormMultiSelect<T>;
 
   @override
+  void initState() {
+    super.initState();
+    _parentValues = List<T>.of(widget.values ?? <T>[]);
+  }
+
+  @override
   void didUpdateWidget(covariant WFormMultiSelect<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!listEquals(oldWidget.values, widget.values)) {
-      setValue(widget.values ?? []);
-    }
+    final List<T> incoming = widget.values ?? <T>[];
+    if (listEquals(_parentValues, incoming)) return;
+
+    _parentValues = List<T>.of(incoming);
+    setValue(List<T>.of(incoming));
+    // An error shown for the old values would sit next to the new ones.
+    if (hasError) validate();
   }
 }
 
+/// Internal widget for WFormMultiSelect.
 class _WFormMultiSelectContent<T> extends StatelessWidget {
   const _WFormMultiSelectContent({
     required this.state,

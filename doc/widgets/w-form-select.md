@@ -109,8 +109,8 @@ WFormMultiSelect({
 |:-----|:-----|:--------|:------------|
 | `className` | `String?` | `null` | Wind utility classes for the select trigger. |
 | `options` | `List<SelectOption<T>>` | **Required** | The list of available options to display. |
-| `value` | `T?` | `null` | The currently selected value (single select). A new value from the parent replaces the field's value on rebuild, so the field needs no key to follow it. |
-| `values` | `List<T>?` | `null` | The currently selected values (multi select); null is treated as empty. A change in content replaces the field's values on rebuild; a new list with the same items is no change. |
+| `value` | `T?` | `null` | The currently selected value (single select). A new value from the parent (compared with `==`) replaces the field's value on rebuild and re-runs a validator whose error is showing, so the field needs no key to follow it. |
+| `values` | `List<T>?` | `null` | The currently selected values (multi select); null is treated as empty. A change in content, including a list edited in place, replaces the field's values on rebuild; a new list with the same items is no change. |
 | `label` | `String?` | `null` | Optional label text displayed above the select. |
 | `hint` | `String?` | `null` | Optional hint text displayed below the select. |
 | `validator` | `String? Function(T?)?` | `null` | Form validation logic. |

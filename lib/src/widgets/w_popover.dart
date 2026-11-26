@@ -274,8 +274,9 @@ class WPopover extends StatefulWidget {
 
   /// Whether to automatically flip alignment when overflow would occur.
   ///
-  /// When true, WPopover calculates optimal direction BEFORE opening the overlay,
-  /// preventing the popover from appearing off-screen.
+  /// When true, WPopover estimates the side from [maxHeight] before opening the
+  /// overlay and settles it on the measured panel height before the first
+  /// paint, so the popover never appears off-screen or on the wrong side.
   ///
   /// Default: `true`
   final bool autoFlip;
@@ -371,8 +372,14 @@ class _WPopoverState extends State<WPopover> {
   /// separate outside tap on a later frame still closes the popover.
   bool _suppressNextTapOutside = false;
 
-  /// Pre-calculated effective alignment (computed before opening).
+  /// The side the panel opens on: estimated from [WPopover.maxHeight] before
+  /// opening, settled on the measured panel height before the first paint.
   PopoverAlignment? _effectiveAlignment;
+
+  /// Bumped by every [open], so a reveal scheduled by an earlier open (closed
+  /// and re-opened before its callback ran) is ignored instead of revealing
+  /// the new panel before it is measured.
+  int _openGeneration = 0;
 
   /// Whether the open panel is in its invisible measuring frame.
   ///
@@ -661,7 +668,10 @@ class _WPopoverState extends State<WPopover> {
     // height settles it one frame later, before anything is painted.
     if (widget.autoFlip) {
       _calculateEffectiveAlignment();
-      WidgetsBinding.instance.addPostFrameCallback((_) => _revealMeasured());
+      final int generation = ++_openGeneration;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _revealMeasured(generation),
+      );
     } else {
       _effectiveAlignment = widget.alignment;
     }
@@ -680,8 +690,8 @@ class _WPopoverState extends State<WPopover> {
 
   /// Settles the side on the panel height laid out in the measuring frame and
   /// paints the panel there.
-  void _revealMeasured() {
-    if (!mounted || !_isOpen || !_measuring) return;
+  void _revealMeasured(int generation) {
+    if (!mounted || generation != _openGeneration || !_measuring) return;
 
     final RenderBox? panelBox =
         _panelKey.currentContext?.findRenderObject() as RenderBox?;

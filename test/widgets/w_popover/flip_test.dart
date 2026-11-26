@@ -16,8 +16,38 @@ Widget _host({required double top, required WPopover popover}) => MaterialApp(
   ),
 );
 
-WPopover _popover({required double bodyHeight, bool autoFlip = true}) {
+/// Counts its own `initState` calls, so a remount across the reveal shows.
+class _Counter extends StatefulWidget {
+  const _Counter();
+
+  @override
+  State<_Counter> createState() => _CounterState();
+}
+
+class _CounterState extends State<_Counter> {
+  static int initCount = 0;
+
+  int _count = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    initCount++;
+  }
+
+  void increment() => setState(() => _count++);
+
+  @override
+  Widget build(BuildContext context) => WText('count $_count');
+}
+
+WPopover _popover({
+  required double bodyHeight,
+  bool autoFlip = true,
+  PopoverController? controller,
+}) {
   return WPopover(
+    controller: controller,
     alignment: PopoverAlignment.bottomRight,
     autoFlip: autoFlip,
     className: 'bg-white dark:bg-gray-800',
@@ -53,6 +83,24 @@ void main() {
 
     return opacities.isEmpty ? 1 : opacities.first.opacity;
   }
+
+  IgnorePointer panelIgnorePointer(WidgetTester tester) => tester
+      .widgetList<IgnorePointer>(
+        find.ancestor(
+          of: find.byKey(_bodyKey),
+          matching: find.byType(IgnorePointer),
+        ),
+      )
+      .first;
+
+  ExcludeSemantics panelExcludeSemantics(WidgetTester tester) => tester
+      .widgetList<ExcludeSemantics>(
+        find.ancestor(
+          of: find.byKey(_bodyKey),
+          matching: find.byType(ExcludeSemantics),
+        ),
+      )
+      .first;
 
   group('WPopover auto-flip on the measured panel height', () {
     testWidgets('a short panel in the lower half opens below its trigger', (
@@ -132,6 +180,129 @@ void main() {
       controller.show();
       await tester.pumpAndSettle();
       expect(panel(tester).bottom, lessThanOrEqualTo(trigger(tester).top));
+    });
+
+    testWidgets(
+      'the measuring frame ignores pointers and semantics, the reveal does not',
+      (tester) async {
+        final SemanticsHandle semantics = tester.ensureSemantics();
+        await pumpPhone(tester, _popover(bodyHeight: 140));
+        await tester.tap(find.text('Trigger'));
+        await tester.pump();
+
+        expect(panelOpacity(tester), 0);
+        expect(panelIgnorePointer(tester).ignoring, isTrue);
+        expect(panelExcludeSemantics(tester).excluding, isTrue);
+        expect(find.bySemanticsLabel('Body'), findsNothing);
+
+        await tester.pump();
+
+        expect(panelOpacity(tester), 1);
+        expect(panelIgnorePointer(tester).ignoring, isFalse);
+        expect(panelExcludeSemantics(tester).excluding, isFalse);
+        expect(find.bySemanticsLabel('Body'), findsOneWidget);
+        semantics.dispose();
+      },
+    );
+
+    testWidgets('the content keeps its State across the reveal', (
+      tester,
+    ) async {
+      _CounterState.initCount = 0;
+      await pumpPhone(
+        tester,
+        WPopover(
+          alignment: PopoverAlignment.bottomRight,
+          className: 'bg-white dark:bg-gray-800',
+          width: 200,
+          triggerBuilder: (context, isOpen, isHovering) =>
+              const SizedBox(width: 40, height: 40, child: WText('Trigger')),
+          contentBuilder: (context, close) =>
+              const SizedBox(key: _bodyKey, height: 140, child: _Counter()),
+        ),
+      );
+      await tester.tap(find.text('Trigger'));
+      await tester.pump();
+      final _CounterState measured = tester.state(find.byType(_Counter));
+      measured.increment();
+
+      await tester.pumpAndSettle();
+
+      expect(panelOpacity(tester), 1);
+      expect(tester.state(find.byType(_Counter)), same(measured));
+      expect(find.text('count 1'), findsOneWidget);
+      expect(_CounterState.initCount, 1);
+    });
+
+    testWidgets('closing before the reveal stays closed, the next open shows', (
+      tester,
+    ) async {
+      final PopoverController controller = PopoverController();
+      addTearDown(controller.dispose);
+      await pumpPhone(
+        tester,
+        _popover(bodyHeight: 140, controller: controller),
+      );
+
+      controller.show();
+      controller.hide();
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(_bodyKey), findsNothing);
+
+      controller.show();
+      await tester.pumpAndSettle();
+
+      expect(panelOpacity(tester), 1);
+      expect(panel(tester).top, greaterThanOrEqualTo(trigger(tester).bottom));
+    });
+
+    testWidgets('a stale reveal from an earlier open is ignored', (
+      tester,
+    ) async {
+      double bodyHeight = 140;
+      final PopoverController controller = PopoverController();
+      addTearDown(controller.dispose);
+      await pumpPhone(
+        tester,
+        WPopover(
+          controller: controller,
+          alignment: PopoverAlignment.bottomRight,
+          className: 'bg-white dark:bg-gray-800',
+          width: 200,
+          triggerBuilder: (context, isOpen, isHovering) =>
+              const SizedBox(width: 40, height: 40, child: WText('Trigger')),
+          contentBuilder: (context, close) => SizedBox(
+            key: _bodyKey,
+            height: bodyHeight,
+            child: const WText('Body'),
+          ),
+        ),
+      );
+
+      // Registered ahead of the first open's reveal, so it re-opens with
+      // taller content after the first measuring frame and before that
+      // reveal runs.
+      tester.binding.addPostFrameCallback((_) {
+        controller.hide();
+        bodyHeight = 500;
+        controller.show();
+      });
+      controller.show();
+
+      for (int frame = 0; frame < 3; frame++) {
+        await tester.pump();
+        final bool painted = panelOpacity(tester) > 0;
+        final bool above = panel(tester).bottom <= trigger(tester).top;
+        expect(
+          !painted || above,
+          isTrue,
+          reason: 'frame $frame painted the 400 px panel below the trigger',
+        );
+      }
+      expect(panelOpacity(tester), 1);
+      expect(panel(tester).height, 400);
     });
 
     testWidgets('autoFlip false keeps the requested side without measuring', (

@@ -2171,6 +2171,25 @@ class WDiv extends StatelessWidget {
             insideVerticalScroll: scrollScope?.verticalUnbounded ?? false,
             child: innerChild,
           );
+
+          // `w-full` inside a horizontal scroll: the width is unbounded, which
+          // the box above cannot take a fraction of, so the viewport width is
+          // threaded in the way the width-only branch does it, but only when
+          // the parent leaves the width unbounded: a parent that gave one is
+          // filled as before. No port means no scroll, so nothing to add.
+          if (isFullWidth && scrollScope?.horizontalPort != null) {
+            logger.wrapWith("WindMinWidthBox", "w-full in horizontal scroll");
+            WindPerfCounters.recordWrapperEmission('WindMinWidthBox');
+            widgetToBuild = WindMinWidthBox(
+              port: scrollScope!.horizontalPort!,
+              floorMinWidth: styles.constraints?.minWidth ?? 0,
+              yieldToBoundedWidth: true,
+              maxWidth: hasMaxWidthConstraint
+                  ? styles.constraints!.maxWidth
+                  : null,
+              child: widgetToBuild,
+            );
+          }
         } else {
           // Both fractional, neither h-full: FractionallySizedBox handles it
           logger.wrapWith("FractionallySizedBox", "w+h fraction");

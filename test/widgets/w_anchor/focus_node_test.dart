@@ -167,6 +167,34 @@ void main() {
       expect(node.hasPrimaryFocus, isTrue);
       expect(find.text('focus:true primary:true'), findsOneWidget);
     });
+
+    // Enabling inserts `Actions` above `Focus`, which remounts it, and a new
+    // `Focus` state used to file a second autofocus request.
+    testWidgets('an anchor disabled at mount does not autofocus once enabled '
+        '(#329)', (tester) async {
+      final FocusNode node = FocusNode();
+      addTearDown(node.dispose);
+
+      Widget anchor({required bool isDisabled}) => wrapWithTheme(
+        WAnchor(
+          onTap: () {},
+          focusNode: node,
+          autofocus: true,
+          isDisabled: isDisabled,
+          child: const _StateReader(),
+        ),
+      );
+
+      await tester.pumpWidget(anchor(isDisabled: true));
+      await tester.pumpAndSettle();
+      expect(node.hasFocus, isFalse);
+
+      await tester.pumpWidget(anchor(isDisabled: false));
+      await tester.pumpAndSettle();
+
+      expect(node.hasFocus, isFalse);
+      expect(find.text('focus:false primary:false'), findsOneWidget);
+    });
   });
 
   group('WAnchor focus node lifecycle', () {

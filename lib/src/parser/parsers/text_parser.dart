@@ -18,7 +18,8 @@ import 'wind_parser_interface.dart';
 /// - **Font Family:** `font-{sans|serif|mono}`, `font-[{family}]`
 /// - **Decoration:** `underline`, `overline`, `line-through`, `no-underline`
 /// - **Decoration Style:** `decoration-{solid|double|dotted|dashed|wavy}`
-/// - **Decoration Color:** `decoration-{color}-{shade}`, `decoration-[#hex]`
+/// - **Decoration Color:** `decoration-{color}-{shade}`, `decoration-[#hex]`,
+///   `decoration-{color}-{shade}/{opacity}`
 /// - **Decoration Thickness:** `decoration-{value}`, `decoration-[{value}]`
 /// - **Transform:** `uppercase`, `lowercase`, `capitalize`, `normal-case`
 /// - **Letter Spacing:** `tracking-{tighter|tight|normal|wide|wider|widest}` (em),
@@ -86,7 +87,8 @@ class TextParser implements WindParserInterface {
     r'^(?<decoration>underline|overline|line-through|no-underline)$',
   );
 
-  /// Regex for decoration color: `decoration-red-500`
+  /// Regex for decoration color: `decoration-red-500`, matched after
+  /// `parseColorOpacity` has stripped any `/N` suffix.
   ///
   /// Same hex lengths as [_textColorRegex], for the same reason.
   static final RegExp _textDecorationColorRegex = RegExp(
@@ -340,7 +342,10 @@ class TextParser implements WindParserInterface {
 
       // 7. Decoration Color
       if (textDecorationColor == null) {
-        final match = _textDecorationColorRegex.firstMatch(className);
+        final opacityData = parseColorOpacity(className);
+        final match = _textDecorationColorRegex.firstMatch(
+          opacityData.colorPart,
+        );
         if (match != null) {
           Color? parsedColor;
 
@@ -354,6 +359,9 @@ class TextParser implements WindParserInterface {
           }
 
           if (parsedColor != null) {
+            if (opacityData.opacity != null) {
+              parsedColor = applyOpacity(parsedColor, opacityData.opacity!);
+            }
             textDecorationColor = parsedColor;
             continue;
           }

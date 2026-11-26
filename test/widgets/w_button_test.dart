@@ -258,6 +258,37 @@ void main() {
         }
       });
 
+      // An empty caption renders no readable text, so it cannot name the
+      // button and the child has to.
+      for (final String caption in <String>['', '  ']) {
+        testWidgets(
+          'a blank loadingText "$caption" leaves the child to name the '
+          'button (#321)',
+          (tester) async {
+            final SemanticsHandle handle = tester.ensureSemantics();
+            try {
+              await tester.pumpWidget(
+                wrapWithTheme(
+                  WButton(
+                    onTap: () {},
+                    isLoading: true,
+                    loadingText: caption,
+                    child: const WText('Save'),
+                  ),
+                ),
+              );
+
+              expect(
+                tester.getSemantics(find.byType(WButton)),
+                isSemantics(isButton: true, label: 'Save'),
+              );
+            } finally {
+              handle.dispose();
+            }
+          },
+        );
+      }
+
       testWidgets(
         'loading button without a callback keeps its child label (#321)',
         (tester) async {
@@ -729,6 +760,33 @@ void main() {
     });
 
     group('Loading State', () {
+      setUp(WindParser.clearCache);
+
+      // The unpainted child is kept for its name only; a focusable descendant
+      // in it would be an invisible keyboard stop.
+      testWidgets('keeps the unpainted child out of keyboard focus (#321)', (
+        tester,
+      ) async {
+        final FocusNode inner = FocusNode();
+        addTearDown(inner.dispose);
+
+        await tester.pumpWidget(
+          wrapWithTheme(
+            WButton(
+              onTap: () {},
+              isLoading: true,
+              child: Focus(focusNode: inner, child: const Text('Save')),
+            ),
+          ),
+        );
+
+        inner.requestFocus();
+        await tester.pump();
+
+        expect(inner.hasFocus, isFalse);
+        expect(find.text('Save'), findsOneWidget);
+      });
+
       testWidgets('shows loading spinner when isLoading is true (#321)', (
         tester,
       ) async {
@@ -1510,6 +1568,32 @@ void main() {
 
         expect(node.hasPrimaryFocus, isTrue);
         expect(paintedColor(tester), const Color(0xFF1D4ED8));
+      });
+
+      testWidgets('a button loading at mount does not autofocus when loading '
+          'ends (#329)', (tester) async {
+        final FocusNode node = FocusNode();
+        addTearDown(node.dispose);
+
+        Widget button({required bool isLoading}) => wrapWithTheme(
+          WButton(
+            onTap: () {},
+            focusNode: node,
+            autofocus: true,
+            isLoading: isLoading,
+            child: const Text('Save'),
+          ),
+        );
+
+        // The spinner repeats, so pump a fixed time rather than settle.
+        await tester.pumpWidget(button(isLoading: true));
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(node.hasFocus, isFalse);
+
+        await tester.pumpWidget(button(isLoading: false));
+        await tester.pumpAndSettle();
+
+        expect(node.hasFocus, isFalse);
       });
 
       testWidgets('unmounting the button leaves the external node undisposed '

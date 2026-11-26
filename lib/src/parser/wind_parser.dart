@@ -241,15 +241,15 @@ class WindParser {
   }
 
   /// The colour-bearing families (background, text, border, ring, shadow, svg
-  /// fill and stroke, gradient stops) with their colour grammar: a named colour
-  /// with an optional shade, or an arbitrary `[#hex]` of 3, 4, 6 or 8 digits.
-  /// `decoration-*` is left out on purpose: its regex has no `/N` slot.
+  /// fill and stroke, gradient stops, text decoration) with their colour
+  /// grammar: a named colour with an optional shade, or an arbitrary `[#hex]`
+  /// of 3, 4, 6 or 8 digits.
   ///
   /// Keep this a superset of each family parser's own colour grammar: a colour
   /// the parser reads but this misses would silently lose its alias `/N`.
   static final RegExp _colorClassRegex = RegExp(
-    r'^(?:bg|text|border|ring|shadow|fill|stroke|from|via|to)-'
-    r'(?:(?<color>[a-zA-Z0-9]+)-?(?<shade>[0-9]{0,3})'
+    r'^(?:bg|text|border|ring|shadow|fill|stroke|from|via|to|decoration)-'
+    r'(?:(?<color>[a-zA-Z0-9]+)-?(?<shade>[0-9]*)'
     r'|\[#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\])$',
   );
 
@@ -259,7 +259,9 @@ class WindParser {
   ///
   /// The alias expander asks this to decide which classes of an alias take the
   /// `/N` of `<alias>/<N>`. A colour name without a shade reads as shade 500,
-  /// as the colour parsers do.
+  /// as the colour parsers do, and a `shadow-*` token naming a `theme.shadows`
+  /// preset is that preset, as in `ShadowParser`, and a `ring-*` token naming a
+  /// `theme.ringWidths` key is that width, as in `RingParser`, never a colour.
   static bool _isColorClass(String bareClass, WindThemeData theme) {
     final match = _colorClassRegex.firstMatch(bareClass);
     if (match == null) return false;
@@ -267,11 +269,19 @@ class WindParser {
     final colorName = match.namedGroup('color');
     if (colorName == null) return true;
 
-    final shade = match.namedGroup('shade')!;
-    return theme.isValidColor(
-      colorName,
-      shade: shade.isEmpty ? 500 : int.parse(shade),
-    );
+    if (bareClass.startsWith('shadow-') &&
+        theme.shadows.containsKey(bareClass.substring('shadow-'.length))) {
+      return false;
+    }
+
+    if (bareClass.startsWith('ring-') &&
+        theme.ringWidths.containsKey(bareClass.substring('ring-'.length))) {
+      return false;
+    }
+
+    final shadeText = match.namedGroup('shade')!;
+    final shade = shadeText.isEmpty ? 500 : int.tryParse(shadeText);
+    return shade != null && theme.isValidColor(colorName, shade: shade);
   }
 
   /// Emits a debug-only expander warning (cycle, depth cap, budget or an

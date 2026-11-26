@@ -114,17 +114,34 @@ class WindMinWidthBox extends SingleChildRenderObjectWidget {
   /// wider; `false` sizes the child to exactly that width.
   final bool loose;
 
+  /// Whether a finite incoming maximum width is left to the child untouched,
+  /// so the viewport only stands in for a width the parent leaves unbounded.
+  ///
+  /// `w-full h-full` sets it: under a parent that gave a width, the child fills
+  /// that parent rather than being clamped down to a narrower viewport.
+  final bool yieldToBoundedWidth;
+
+  /// The upper bound on the viewport fill (from `max-w-*`), or null for none.
+  final double? maxWidth;
+
   const WindMinWidthBox({
     super.key,
     required this.port,
     required this.floorMinWidth,
     this.loose = false,
+    this.yieldToBoundedWidth = false,
+    this.maxWidth,
     required super.child,
   });
 
   @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _RenderMinWidthBox(port, floorMinWidth, loose);
+  RenderObject createRenderObject(BuildContext context) => _RenderMinWidthBox(
+    port,
+    floorMinWidth,
+    loose,
+    yieldToBoundedWidth,
+    maxWidth,
+  );
 
   @override
   void updateRenderObject(
@@ -134,12 +151,34 @@ class WindMinWidthBox extends SingleChildRenderObjectWidget {
     (renderObject as _RenderMinWidthBox)
       ..port = port
       ..floorMinWidth = floorMinWidth
-      ..loose = loose;
+      ..loose = loose
+      ..yieldToBoundedWidth = yieldToBoundedWidth
+      ..maxWidth = maxWidth;
   }
 }
 
 class _RenderMinWidthBox extends RenderProxyBox {
-  _RenderMinWidthBox(this._port, this._floorMinWidth, this._loose);
+  _RenderMinWidthBox(
+    this._port,
+    this._floorMinWidth,
+    this._loose,
+    this._yieldToBoundedWidth,
+    this._maxWidth,
+  );
+
+  bool _yieldToBoundedWidth;
+  set yieldToBoundedWidth(bool value) {
+    if (value == _yieldToBoundedWidth) return;
+    _yieldToBoundedWidth = value;
+    markNeedsLayout();
+  }
+
+  double? _maxWidth;
+  set maxWidth(double? value) {
+    if (value == _maxWidth) return;
+    _maxWidth = value;
+    markNeedsLayout();
+  }
 
   bool _loose;
   set loose(bool value) {
@@ -183,6 +222,11 @@ class _RenderMinWidthBox extends RenderProxyBox {
       size = constraints.smallest;
       return;
     }
+    if (_yieldToBoundedWidth && constraints.hasBoundedWidth) {
+      child.layout(constraints, parentUsesSize: true);
+      size = constraints.constrain(child.size);
+      return;
+    }
     final double? viewport = _port.value;
     if (viewport == null || !viewport.isFinite) {
       // No finite viewport width to fill against (the scroll sits in an
@@ -212,9 +256,12 @@ class _RenderMinWidthBox extends RenderProxyBox {
     // Fill the viewport, honoring the min-w-* floor. `target` is clamped into
     // the incoming width range so the tight layout can never exceed a finite
     // parent constraint.
-    final double target = math
-        .max(viewport, _floorMinWidth)
-        .clamp(constraints.minWidth, constraints.maxWidth);
+    final double wanted = math.max(viewport, _floorMinWidth);
+    final double target =
+        (_maxWidth == null ? wanted : math.min(wanted, _maxWidth!)).clamp(
+          constraints.minWidth,
+          constraints.maxWidth,
+        );
     child.layout(
       BoxConstraints(
         minWidth: target,

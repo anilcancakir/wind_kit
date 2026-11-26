@@ -72,8 +72,8 @@ const WButton({
 | `onDoubleTap` | `VoidCallback?` | `null` | Callback for double tap gestures. |
 | `isLoading` | `bool` | `false` | Activates loading state: disables interaction and paints a spinner instead of the child. The button keeps its accessible name (see [Loading States](#loading-states)). |
 | `disabled` | `bool` | `false` | Activates disabled state: disables interaction and changes cursor. |
-| `loadingText` | `String?` | `null` | Text to display next to the loading spinner. |
-| `loadingWidget` | `Widget?` | `null` | Custom widget to replace the default spinner. |
+| `loadingText` | `String?` | `null` | Text to display next to the loading spinner. A blank one is not rendered. |
+| `loadingWidget` | `Widget?` | `null` | Custom widget to replace the default spinner. `loadingText` is not rendered beside it. |
 | `loadingSize` | `double` | `16` | Size of the default loading spinner. |
 | `loadingColor` | `Color?` | `null` | Colour of the spinner. Falls back to text colour, then auto-computes contrast via W3C luminance when no colour is resolvable. |
 | `states` | `Set<String>?` | `null` | Custom state prefixes (e.g., `{'error'}` for `error:` classes). |
@@ -177,8 +177,8 @@ WButton(
 A loading button stays a button for assistive technology, marked not enabled, and keeps an accessible name. The name is, in order:
 
 1. `semanticLabel`, when given.
-2. The rendered `loadingText`, when `loadingText` is set and `loadingWidget` is null.
-3. The child's own text. The child stays mounted but is not painted (it sits at zero opacity in a `Stack` beside the spinner), so the loading layout is unchanged.
+2. The rendered `loadingText`, when `loadingText` is not blank and `loadingWidget` is null. A blank `loadingText` (empty or whitespace only) is not rendered.
+3. The child's own text. The child stays mounted but is not painted (it sits at zero opacity in a `Stack` beside the spinner), so the loading layout is unchanged. It sits under `ExcludeFocus`, so a focusable widget inside it cannot take keyboard focus while hidden.
 
 With a `loadingWidget`, `loadingText` is never rendered, so the child names the button; a `loadingWidget` that carries its own text joins that name, so pass a `semanticLabel` when the two would read badly together. Because the child remains in the tree, a test finder such as `find.text('Save')` still matches it while loading.
 

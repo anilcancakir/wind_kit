@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -29,6 +30,12 @@ Widget popover({
     contentBuilder: (context, close) => content,
   );
 }
+
+/// Clicks the trigger with a mouse, the pointer of a desktop or web viewer. A
+/// touch open on a phone moves no focus, so the pointer-open focus cases need
+/// a mouse.
+Future<void> click(WidgetTester tester) =>
+    tester.tap(find.text('Trigger'), kind: PointerDeviceKind.mouse);
 
 /// The colour the trigger box paints, read from the nearest `DecoratedBox`
 /// above the trigger's text.
@@ -215,22 +222,6 @@ void main() {
         expect(trigger.hasPrimaryFocus, isFalse);
       });
 
-      testWidgets('leaves a pointer-opened popover to wherever focus goes', (
-        tester,
-      ) async {
-        await tester.pumpWidget(wrapWithTheme(popover()));
-
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pump();
-        final FocusNode trigger = FocusManager.instance.primaryFocus!;
-        await tester.tap(find.text('Trigger'));
-        await tester.pumpAndSettle();
-        trigger.unfocus();
-        await tester.pumpAndSettle();
-
-        expect(trigger.hasPrimaryFocus, isFalse);
-      });
-
       testWidgets(
         'Escape in a dialog closes the popover and keeps the dialog',
         (tester) async {
@@ -269,6 +260,50 @@ void main() {
         },
       );
 
+      testWidgets('a page pushed over a keyboard-opened popover keeps focus', (
+        tester,
+      ) async {
+        bool? open;
+        await tester.pumpWidget(
+          wrapWithTheme(
+            WPopover(
+              triggerBuilder: (context, isOpen, isHovering) {
+                open = isOpen;
+                return const WDiv(
+                  className: 'w-10 h-10 bg-white',
+                  child: Text('Trigger'),
+                );
+              },
+              contentBuilder: (context, close) => TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => Scaffold(
+                      body: WAnchor(onTap: () {}, child: const Text('Page')),
+                    ),
+                  ),
+                ),
+                child: const Text('Push'),
+              ),
+            ),
+          ),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Push'), kind: PointerDeviceKind.mouse);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        final FocusNode? onPage = FocusManager.instance.primaryFocus;
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+
+        expect(open, isTrue);
+        expect(FocusManager.instance.primaryFocus, same(onPage));
+      });
+
       testWidgets('Escape on a route pushed over an open popover leaves it', (
         tester,
       ) async {
@@ -299,7 +334,7 @@ void main() {
             ),
           ),
         );
-        await tester.tap(find.text('Trigger'));
+        await click(tester);
         await tester.pumpAndSettle();
         await tester.tap(find.text('Push'));
         await tester.pumpAndSettle();
@@ -437,6 +472,182 @@ void main() {
           ),
           findsOneWidget,
         );
+      });
+    });
+
+    group('Pointer open', () {
+      testWidgets('Escape closes a popover a pointer opened (#347)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(wrapWithTheme(popover()));
+
+        await click(tester);
+        await tester.pumpAndSettle();
+        expect(find.text('Content'), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Content'), findsNothing);
+        expect(
+          FocusManager.instance.primaryFocus?.context
+              ?.findAncestorWidgetOfExactType<WPopover>(),
+          isNotNull,
+          reason: 'focus stays on the trigger the pointer opened',
+        );
+      });
+
+      testWidgets('takes focus back once when it drops to the page (#347)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(wrapWithTheme(popover()));
+
+        await click(tester);
+        await tester.pumpAndSettle();
+        final FocusNode trigger = FocusManager.instance.primaryFocus!;
+        expect(
+          trigger.context?.findAncestorWidgetOfExactType<WPopover>(),
+          isNotNull,
+        );
+
+        // What a web build does as the panel mounts.
+        trigger.unfocus();
+        await tester.pumpAndSettle();
+
+        expect(trigger.hasPrimaryFocus, isTrue);
+
+        trigger.unfocus();
+        await tester.pumpAndSettle();
+
+        expect(trigger.hasPrimaryFocus, isFalse);
+      });
+
+      testWidgets('leaves focus a viewer moved after a pointer open', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            Column(
+              children: [
+                popover(),
+                WAnchor(onTap: () {}, child: const Text('Next')),
+              ],
+            ),
+          ),
+        );
+
+        await click(tester);
+        await tester.pumpAndSettle();
+        await click(tester);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+
+        expect(
+          FocusManager.instance.primaryFocus?.context
+              ?.findAncestorWidgetOfExactType<WAnchor>(),
+          isNotNull,
+        );
+      });
+
+      testWidgets(
+        'leaves a pointer-opened, Tab-focused trigger to the viewer',
+        (tester) async {
+          await tester.pumpWidget(wrapWithTheme(popover()));
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+          final FocusNode trigger = FocusManager.instance.primaryFocus!;
+          await click(tester);
+          await tester.pumpAndSettle();
+          trigger.unfocus();
+          await tester.pumpAndSettle();
+
+          expect(trigger.hasPrimaryFocus, isFalse);
+        },
+      );
+
+      testWidgets('a touch open on a phone leaves a focused field alone', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            Column(children: [const TextField(autofocus: true), popover()]),
+          ),
+        );
+        await tester.pump();
+        expect(
+          FocusManager.instance.primaryFocus?.context
+              ?.findAncestorWidgetOfExactType<EditableText>(),
+          isNotNull,
+        );
+
+        // A touch outside a field keeps its focus and its keyboard on a
+        // phone, so opening a popover beside it must not take either.
+        await tester.tap(find.text('Trigger'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Content'), findsOneWidget);
+        expect(
+          FocusManager.instance.primaryFocus?.context
+              ?.findAncestorWidgetOfExactType<EditableText>(),
+          isNotNull,
+        );
+      });
+
+      testWidgets('a pointer open lights no focus: class (#347)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            popover(triggerClassName: 'w-10 h-10 bg-white focus:bg-black'),
+          ),
+        );
+
+        await click(tester);
+        await tester.pumpAndSettle();
+
+        expect(triggerColor(tester), Colors.white);
+
+        // Closing with the pointer keeps the focus a pointer gave.
+        await click(tester);
+        await tester.pumpAndSettle();
+
+        expect(triggerColor(tester), Colors.white);
+      });
+
+      testWidgets('the first key after a pointer open lights it (#347)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            popover(triggerClassName: 'w-10 h-10 bg-white focus:bg-black'),
+          ),
+        );
+
+        await click(tester);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+
+        expect(triggerColor(tester), Colors.black);
+      });
+
+      testWidgets('a pointer open keeps the ring of a Tab-focused trigger', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            popover(triggerClassName: 'w-10 h-10 bg-white focus:bg-black'),
+          ),
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        await click(tester);
+        await tester.pumpAndSettle();
+
+        expect(triggerColor(tester), Colors.black);
       });
     });
 

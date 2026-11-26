@@ -476,6 +476,77 @@ void main() {
         }
       });
 
+      // The spinner publishes `SemanticsRole.loadingSpinner`, and a merge
+      // copies a child's role onto a parent whose role is `none`, as the
+      // button's is (the role is a flag). Flutter web reads the role before
+      // the flags, so the merged node rendered as a nameless-role element
+      // with no `button` role and no `aria-disabled`.
+      final Map<String, WButton> loadingShapes = <String, WButton>{
+        'with a callback, named by its child': WButton(
+          onTap: () {},
+          isLoading: true,
+          child: const WText('Always Loading'),
+        ),
+        'with a callback and loadingText': WButton(
+          onTap: () {},
+          isLoading: true,
+          loadingText: 'Submitting…',
+          child: const WText('Click to Load'),
+        ),
+        'with a callback and semanticLabel': WButton(
+          onTap: () {},
+          isLoading: true,
+          semanticLabel: 'Save now',
+          child: const WText('Save'),
+        ),
+        'without a callback, named by its child': const WButton(
+          onTap: null,
+          isLoading: true,
+          child: WText('Always Loading'),
+        ),
+        'without a callback, with loadingText': const WButton(
+          onTap: null,
+          isLoading: true,
+          loadingText: 'Submitting…',
+          child: WText('Click to Load'),
+        ),
+      };
+      final Map<String, String> loadingLabels = <String, String>{
+        'with a callback, named by its child': 'Always Loading',
+        'with a callback and loadingText': 'Submitting…',
+        'with a callback and semanticLabel': 'Save now',
+        'without a callback, named by its child': 'Always Loading',
+        'without a callback, with loadingText': 'Submitting…',
+      };
+      for (final MapEntry<String, WButton> shape in loadingShapes.entries) {
+        testWidgets(
+          'loading button ${shape.key} keeps the button role over the '
+          "spinner's (#321)",
+          (tester) async {
+            final SemanticsHandle handle = tester.ensureSemantics();
+            try {
+              await tester.pumpWidget(wrapWithTheme(shape.value));
+
+              final SemanticsNode node = tester.getSemantics(
+                find.byType(WButton),
+              );
+              expect(
+                node,
+                isSemantics(
+                  isButton: true,
+                  hasEnabledState: true,
+                  isEnabled: false,
+                  label: loadingLabels[shape.key],
+                  role: SemanticsRole.none,
+                ),
+              );
+            } finally {
+              handle.dispose();
+            }
+          },
+        );
+      }
+
       testWidgets('loading button ignores the activation key', (tester) async {
         var tapped = false;
         final FocusNode before = FocusNode(debugLabel: 'before');

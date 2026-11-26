@@ -10,17 +10,24 @@ import 'package:wind_kit/src/widgets/w_div.dart';
 /// `WindParser.parse` resolves them through the real `parse()` path.
 ///
 /// [brightness] forces the theme brightness (system sync is switched off so it
-/// sticks); omitted, the theme keeps its defaults.
+/// sticks); omitted, the theme keeps its defaults. [colors], [shadows] and
+/// [ringWidths] extend the default palette, shadow presets and ring widths.
 Widget wrapWithAliases(
   Map<String, String> aliases,
   Widget child, {
   Brightness? brightness,
+  Map<String, MaterialColor>? colors,
+  Map<String, List<BoxShadow>>? shadows,
+  Map<String, double>? ringWidths,
 }) {
   return MaterialApp(
     home: WindTheme(
       data: WindThemeData(
         screens: const {'sm': 640, 'md': 768, 'lg': 1024, 'xl': 1280},
         aliases: aliases,
+        colors: colors,
+        shadows: shadows,
+        ringWidths: ringWidths,
         brightness: brightness ?? Brightness.light,
         syncWithSystem: brightness == null,
       ),
@@ -205,6 +212,9 @@ void main() {
       List<String> classNames, {
       Brightness? brightness,
       Set<String>? states,
+      Map<String, MaterialColor>? colors,
+      Map<String, List<BoxShadow>>? shadows,
+      Map<String, double>? ringWidths,
     }) async {
       final styles = <WindStyle>[];
 
@@ -222,6 +232,9 @@ void main() {
             },
           ),
           brightness: brightness,
+          colors: colors,
+          shadows: shadows,
+          ringWidths: ringWidths,
         ),
       );
 
@@ -306,6 +319,100 @@ void main() {
       );
 
       expect(plain.single.decoration?.color, const Color(0xFF336699));
+    });
+
+    testWidgets('applies /N to a ring colour on a theme shade of 1000 (#324)', (
+      tester,
+    ) async {
+      final styles = await parseAll(
+        tester,
+        const {'focus-ring': 'ring-brand-1000', 'bad-ring': 'ring-brand-1100'},
+        const ['focus-ring/50', 'bad-ring/50'],
+        colors: {
+          'brand': const MaterialColor(0xFF111111, {
+            500: Color(0xFF111111),
+            1000: Color(0xFF222222),
+          }),
+        },
+      );
+
+      expect(styles[0].ringColor, const Color(0x80222222));
+      // A shade the theme does not define stays unclassified, so it gains
+      // nothing and the ring colour never resolves.
+      expect(styles[1].ringColor, isNull);
+    });
+
+    testWidgets('keeps a shadow preset that shares a colour name under /N '
+        '(#324)', (tester) async {
+      const preset = [BoxShadow(color: Color(0x33000000), blurRadius: 4)];
+
+      final styles = await parseAll(
+        tester,
+        const {'panel': 'shadow-red bg-white', 'glow': 'shadow-red-500'},
+        const ['panel/50', 'glow/50'],
+        shadows: const {'red': preset},
+      );
+
+      expect(styles[0].boxShadow, preset);
+      expect(styles[0].decoration?.color, const Color(0x80FFFFFF));
+      expect(styles[1].shadowColor?.a, closeTo(0x80 / 255, 0.001));
+    });
+
+    testWidgets(
+      'keeps a ring width that shares a colour name under /N (#324)',
+      (tester) async {
+        final styles = await parseAll(
+          tester,
+          const {'halo': 'ring-red', 'plain': 'ring-red-500'},
+          const ['halo/50', 'plain/50'],
+          ringWidths: const {'red': 6},
+        );
+
+        expect(styles[0].ringWidth, 6);
+        expect(styles[1].ringColor?.a, closeTo(0x80 / 255, 0.001));
+      },
+    );
+
+    testWidgets('keeps a ring width named like a four-digit shade under /N '
+        '(#324)', (tester) async {
+      final styles = await parseAll(
+        tester,
+        const {'halo': 'ring-brand-1000'},
+        const ['halo/50'],
+        colors: {
+          'brand': const MaterialColor(0xFF111111, {
+            500: Color(0xFF111111),
+            1000: Color(0xFF222222),
+          }),
+        },
+        ringWidths: const {'brand-1000': 6},
+      );
+
+      expect(styles.single.ringWidth, 6);
+    });
+
+    testWidgets('strips a bracketed inner opacity before applying /N (#324)', (
+      tester,
+    ) async {
+      final styles = await parseAll(
+        tester,
+        const {'panel': 'bg-red-500/[-0.5]'},
+        const ['panel/50'],
+      );
+
+      expect(styles.single.decoration?.color?.a, closeTo(0x80 / 255, 0.001));
+    });
+
+    testWidgets('applies /N to a decoration colour alias (#324)', (
+      tester,
+    ) async {
+      final styles = await parseAll(
+        tester,
+        const {'link-brand': 'underline decoration-[#336699]'},
+        const ['link-brand/50'],
+      );
+
+      expect(styles.single.textDecorationColor, const Color(0x80336699));
     });
 
     testWidgets('ignores /N on an alias with no colour class (#324)', (

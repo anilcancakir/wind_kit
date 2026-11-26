@@ -203,8 +203,9 @@ class _RenderFullHeight extends RenderProxyBox {
         exception: AssertionError(
           'Wind: `h-full` on a child inside a vertical scroll '
           '(overflow-y-auto/overflow-y-scroll) resolves to an unbounded '
-          'height. Use `flex-1` inside a `flex flex-col` (with the scroll on '
-          'the column) instead of `h-full` inside a vertical scroll.',
+          'height. Put `flex flex-col h-full` on a bounded parent and '
+          '`flex-1 overflow-y-auto` on its body instead of `h-full` inside a '
+          'vertical scroll.',
         ),
         library: 'wind_kit',
         context: ErrorDescription('while laying out an h-full element'),

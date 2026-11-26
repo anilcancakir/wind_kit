@@ -223,4 +223,40 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'updates in place when the bounded-width yield and the max-w cap change '
+    '(#318)',
+    (tester) async {
+      final port = WindViewportWidthPort()..value = 300;
+      Widget box({required bool bounded, double? maxWidth}) => host(
+        SizedBox(
+          width: 600,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: WindMinWidthBox(
+              port: port,
+              floorMinWidth: 0,
+              yieldToBoundedWidth: bounded,
+              maxWidth: maxWidth,
+              child: const SizedBox(width: 50, height: 20),
+            ),
+          ),
+        ),
+      );
+      double width() => tester.getSize(find.byType(WindMinWidthBox)).width;
+
+      // Yielding to the bounded 600 px parent leaves the content width alone.
+      await tester.pumpWidget(box(bounded: true));
+      expect(width(), 50);
+
+      // Same tree, flag off: the render object is updated and fills 300.
+      await tester.pumpWidget(box(bounded: false));
+      expect(width(), 300);
+
+      // Same tree, cap added: the render object is updated and caps at 100.
+      await tester.pumpWidget(box(bounded: false, maxWidth: 100));
+      expect(width(), 100);
+    },
+  );
 }

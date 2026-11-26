@@ -44,7 +44,7 @@ void main() {
 
 ## API
 
-- Widgets (one barrel, `package:wind_kit/wind_kit.dart`): layout `WDiv`, `WSpacer`, `WBreakpoint`, `WCard`, `WBadge`; display `WText`, `WIcon`, `WImage`, `WSvg`; interactive `WAnchor`, `WButton`, `WPopover`, `WTabs`, `WKeyboardActions` (`platform:` takes the string `'all'`, `'ios'` or `'android'`), `WindAnimationWrapper`; form `WInput`, `WSelect`, `WCheckbox`, `WSwitch`, `WRadio`, `WDatePicker`, `WFormInput`, `WFormSelect`, `WFormMultiSelect`, `WFormCheckbox`, `WFormDatePicker`; server-driven `WDynamic` (an allowlist of wind_kit and Flutter core widgets by default; its `builders:`, `denyWidgets:` and `customIcons:` extend or restrict it). `child` XOR `children` on every widget that takes both.
+- Widgets (one barrel, `package:wind_kit/wind_kit.dart`): layout `WDiv`, `WSpacer`, `WBreakpoint`, `WCard`, `WBadge`; display `WText`, `WIcon`, `WImage`, `WSvg`; interactive `WAnchor`, `WButton`, `WPopover`, `WTooltip`, `WTabs`, `WKeyboardActions` (`platform:` takes the string `'all'`, `'ios'` or `'android'`), `WindAnimationWrapper`; form `WInput`, `WSelect`, `WCheckbox`, `WSwitch`, `WRadio`, `WDatePicker`, `WFormInput`, `WFormSelect`, `WFormMultiSelect`, `WFormCheckbox`, `WFormDatePicker`; server-driven `WDynamic` (an allowlist of wind_kit and Flutter core widgets by default; its `builders:`, `denyWidgets:` and `customIcons:` extend or restrict it). `child` XOR `children` on every widget that takes both.
 - Theme: `WindTheme` (takes `child` or `builder`), `WindThemeData` (token scales merged over the defaults), `WindThemeController` (`toggleTheme()`, `resetToSystem()`, `toThemeData()`), context extensions `context.windTheme`, `windThemeData`, `windBrightness`, `windIsDark`, `windColors`, `windScreens`, `wActiveBreakpoint`, `wIsMobile`, `wIsTablet`, `wIsDesktop`.
 - Parsing: `WindParser.parse(className, context, states:, baseStyle:)` returns an immutable `WindStyle`; `WindThemeData.aliases` maps bare tokens to className strings.
 - Composition: `WindRecipe` and `WindSlotRecipe` (base, variant axes, `WindCompoundVariant`, caller className appended last, no dedupe).
@@ -111,6 +111,7 @@ Android, iOS, web, macOS, Windows and Linux; the web build is WebAssembly-ready.
 - [WSwitch](https://anilcancakir.com/wind_kit/docs/widgets/w-switch.md): Controlled toggle switch. Composes `WAnchor` + `WDiv` (track) + `WDiv` (thumb).
 - [WTabs](https://anilcancakir.com/wind_kit/docs/widgets/w-tabs.md): Controlled tabs widget. Renders a tab list and a content panel.
 - [WText](https://anilcancakir.com/wind_kit/docs/widgets/w-text.md): A utility-first text component that translates Tailwind-like class strings into optimised Flutter typography.
+- [WTooltip](https://anilcancakir.com/wind_kit/docs/widgets/w-tooltip.md): A Material-free tooltip styled through `className` that shows on hover after a delay, on keyboard focus and on long press, never takes focus and exposes its message as the child's semantics tooltip.
 - [WindAnimationWrapper](https://anilcancakir.com/wind_kit/docs/widgets/wind-animation-wrapper.md): `WindAnimationWrapper` wraps any widget in a looping animation driven by `WindAnimationType`: spin, ping, pulse, or bounce.
 
 ### Layout

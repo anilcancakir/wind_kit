@@ -194,6 +194,7 @@ import 'pages/widgets/w_image_ratio.dart';
 import 'pages/widgets/w_select_single.dart';
 import 'pages/widgets/w_select_multi.dart';
 import 'pages/widgets/w_popover_alignment.dart';
+import 'pages/widgets/w_tooltip_basic.dart';
 import 'pages/widgets/w_div_basic.dart';
 import 'pages/widgets/w_spacer_basic.dart';
 import 'pages/widgets/w_spacer_responsive.dart';
@@ -424,6 +425,7 @@ final Map<String, Widget> appRoutes = {
   '/widgets/w_select_single': const WSelectSingleExamplePage(),
   '/widgets/w_select_multi': const WSelectMultiExamplePage(),
   '/widgets/w_popover_alignment': const WPopoverAlignmentExamplePage(),
+  '/widgets/w_tooltip_basic': const WTooltipBasicExamplePage(),
   '/widgets/w_div_basic': const WDivBasicExamplePage(),
   '/widgets/w_spacer_basic': const WSpacerBasicExamplePage(),
   '/widgets/w_spacer_responsive': const WSpacerResponsiveExamplePage(),

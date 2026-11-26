@@ -88,7 +88,10 @@ class _AlignedTooltip extends StatelessWidget {
     return WTooltip(
       message: alignment.name,
       alignment: alignment,
-      child: const _IconAction(icon: Icons.info_outlined, label: 'Placement'),
+      child: _IconAction(
+        icon: Icons.info_outlined,
+        label: 'Show ${alignment.name} placement',
+      ),
     );
   }
 }

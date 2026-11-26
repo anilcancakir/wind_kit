@@ -201,7 +201,7 @@ WDiv(
 | `dark:` | The theme brightness is dark, from the OS or from `toggleTheme()`. |
 | `ios:` `android:` `web:` `mobile:` `macos:` `windows:` `linux:` | The app runs on that platform. |
 
-Failure modes: inside a `Row` a child needs `flex-1` to fill the row, and `h-full` fills any bounded parent, and below a `WDiv` vertical scroll it reports in debug only when its incoming height is unbounded (a direct child of the scroll, under a `flex flex-col`; anywhere else an unbounded height silently takes the screen height); give the scrolling child `flex-1 overflow-y-auto` inside a bounded column.
+Failure modes: inside a `Row` a child needs `flex-1` to fill the row, and `h-full` fills any bounded parent, and below a `WDiv` vertical scroll it reports in debug whenever its incoming height is unbounded, whichever parent passes that height on (a direct child of the scroll, a padding-only `WDiv`, a `flex flex-col`), and under a plain `SingleChildScrollView` an unbounded height silently takes the screen height; give the scrolling child `flex-1 overflow-y-auto` inside a bounded column.
 
 ## Variants
 
@@ -292,7 +292,7 @@ Rules for an agent writing wind_kit code. Each one is a mistake the maintainers 
 | Import only `package:wind_kit/wind_kit.dart` | There is one barrel and no sub-barrels. |
 | Pair every colour token (`bg-`, `text-` colour, `border-`, `ring-`, `shadow-`, `fill-`) with its `dark:` peer in the same className | A missing pair is a bug and nothing reports it. |
 | Route conditions through `states:` and prefixed classes, never Dart interpolation inside a className | An interpolated token hides from the dark-pair review and from grep, and every distinct string adds a cache entry. |
-| Give a Row child `flex-1`; give a scrolling child of a bounded Column `flex-1 overflow-y-auto` | `h-full` fills any bounded parent; below a `WDiv` vertical scroll it reports in debug only when its incoming height is unbounded (a direct child of the scroll, under a `flex flex-col`), and elsewhere an unbounded height silently takes the screen height. |
+| Give a Row child `flex-1`; give a scrolling child of a bounded Column `flex-1 overflow-y-auto` | `h-full` fills any bounded parent; below a `WDiv` vertical scroll it reports in debug whenever its incoming height is unbounded, whichever parent passes that height on (a direct child of the scroll, a padding-only `WDiv`, a `flex flex-col`), and under a plain `SingleChildScrollView` an unbounded height silently takes the screen height. |
 | Pass `child` or `children`, never both | Both fail an assertion at construction. |
 | Spell-check token values by hand | A known family with an unsupported value (`text-7xl`) drops silently; only an unknown family prints the one-time debug hint. |
 | Give an icon-only `WButton` a `semanticLabel` | Without it the control is nameless to screen readers. |

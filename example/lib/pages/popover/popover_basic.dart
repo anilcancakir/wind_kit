@@ -206,6 +206,38 @@ class PopoverBasicExamplePage extends StatelessWidget {
             ),
           ),
         ),
+        ExampleSection(
+          title: 'Menu That Keeps Its Tap (consumeOutsideTap)',
+          description:
+              'consumeOutsideTap: true closes the menu on an outside tap '
+              'without also pressing the control under it.',
+          child: WPopover(
+            consumeOutsideTap: true,
+            className: '''
+              w-56 rounded-xl py-1
+              bg-white dark:bg-slate-800
+              shadow-2xl border border-slate-200 dark:border-slate-700
+            ''',
+            triggerBuilder: (context, isOpen, isHovering) => WButton(
+              onTap: () {},
+              className: '''
+                bg-emerald-600 hover:bg-emerald-700
+                text-white px-4 py-2 rounded-lg duration-200
+              ''',
+              child: const WText(
+                'Account',
+                className: 'text-white font-medium',
+              ),
+            ),
+            contentBuilder: (context, close) => WDiv(
+              className: 'flex flex-col',
+              children: [
+                _MenuItem(icon: Icons.person, label: 'Profile', onTap: close),
+                _MenuItem(icon: Icons.logout, label: 'Sign out', onTap: close),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }

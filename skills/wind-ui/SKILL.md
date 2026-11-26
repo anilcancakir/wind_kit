@@ -5,7 +5,7 @@ version: 2.35.0
 when_to_use: "Use when writing, editing or auditing Flutter UI in an app that uses wind_kit: a className, W-widget, theme or overflow."
 ---
 
-<!-- wind_kit 1.13.x | Skill v2.35.0 (2026-11-26) -->
+<!-- wind_kit 1.14.x | Skill v2.35.0 (2026-11-26) -->
 
 # Wind UI
 
@@ -431,7 +431,7 @@ This skill is written for Flutter apps that already depend on `wind_kit`, so thi
 ```yaml
 # pubspec.yaml
 dependencies:
-  wind_kit: ^1.13.1
+  wind_kit: ^1.14.0
   material_ui: ^1.11.0
 ```
 

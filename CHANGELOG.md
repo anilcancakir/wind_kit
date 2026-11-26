@@ -8,6 +8,10 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+---
+
+## [1.14.0] - 2026-11-26
+
 ### Added
 
 - **`WPopover(consumeOutsideTap: true)` closes the popover on an outside tap without also pressing the control under it, so a tap that dismisses a menu on a phone no longer navigates through a bottom navigation item in the same gesture.** The overlay's `TapRegion` closed the panel and claimed nothing, so the tap went on to whatever it landed on; a host app's QA walk at 390 wide saw the team switcher close and the app change page on one tap. The flag passes through to `TapRegion.consumeOutsideTaps`, which claims the pointer in the gesture arena (the mechanism `MenuAnchor.consumeOutsideTap` uses), so no `GestureDetector` below sees it, a drag that starts there included; a raw `Listener` still gets the pointer down, a screen reader's activation still reaches the control (`TapRegion` cannot consume a semantics action), a dialog a panel item opens keeps its taps (pinned by a test), and the trigger, which shares the region group, still toggles. It is off by default, keeping the pass through a companion panel wants, and has no effect while `closeOnOutsideTap` is `false`. A full-screen barrier behind the panel was rejected: it would also need to let the trigger through and block nothing while closed, which the region group already gives. `lib/src/widgets/w_popover.dart`, `test/widgets/w_popover/close_on_outside_tap_test.dart`, `doc/widgets/w-popover.md`, `example/lib/pages/popover/popover_basic.dart`, `skills/wind-ui/SKILL.md`, `skills/wind-ui/references/widgets.md` (#348, #350)
@@ -634,7 +638,9 @@ Production deps: `flutter` (SDK), `flutter_svg ^2.0.0`, `fluttersdk_wind_diagnos
 
 The 1.0.0-alpha.1 through 1.0.0-alpha.10 release notes (Feb 2026 to May 2026) are preserved in git history and on the `v0` branch. The 0.0.x line is end-of-life; consumers pin to `^1.0.0` going forward.
 
-[Unreleased]: https://github.com/anilcancakir/wind_kit/compare/1.13.0...HEAD
+[Unreleased]: https://github.com/anilcancakir/wind_kit/compare/1.14.0...HEAD
+[1.14.0]: https://github.com/anilcancakir/wind_kit/releases/tag/1.14.0
+[1.13.1]: https://github.com/anilcancakir/wind_kit/releases/tag/1.13.1
 [1.13.0]: https://github.com/anilcancakir/wind_kit/releases/tag/1.13.0
 [1.12.2]: https://github.com/anilcancakir/wind_kit/releases/tag/1.12.2
 [1.12.1]: https://github.com/anilcancakir/wind_kit/releases/tag/1.12.1

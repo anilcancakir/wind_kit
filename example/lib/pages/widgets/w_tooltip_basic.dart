@@ -21,15 +21,18 @@ class WTooltipBasicExamplePage extends StatelessWidget {
             children: const [
               WTooltip(
                 message: 'Save changes',
-                child: _IconAction(icon: Icons.save_outlined),
+                child: _IconAction(icon: Icons.save_outlined, label: 'Save'),
               ),
               WTooltip(
                 message: 'Copy link',
-                child: _IconAction(icon: Icons.link_outlined),
+                child: _IconAction(icon: Icons.link_outlined, label: 'Copy'),
               ),
               WTooltip(
                 message: 'Delete item',
-                child: _IconAction(icon: Icons.delete_outlined),
+                child: _IconAction(
+                  icon: Icons.delete_outlined,
+                  label: 'Delete',
+                ),
               ),
             ],
           ),
@@ -65,7 +68,7 @@ class WTooltipBasicExamplePage extends StatelessWidget {
                   px-3 py-1.5 rounded-lg
                   border border-purple-700 dark:border-purple-300
                 ''',
-                child: _IconAction(icon: Icons.share_outlined),
+                child: _IconAction(icon: Icons.share_outlined, label: 'Share'),
               ),
             ],
           ),
@@ -85,7 +88,7 @@ class _AlignedTooltip extends StatelessWidget {
     return WTooltip(
       message: alignment.name,
       alignment: alignment,
-      child: const _IconAction(icon: Icons.info_outlined),
+      child: const _IconAction(icon: Icons.info_outlined, label: 'Placement'),
     );
   }
 }
@@ -93,14 +96,18 @@ class _AlignedTooltip extends StatelessWidget {
 class _IconAction extends StatelessWidget {
   final IconData icon;
 
-  const _IconAction({required this.icon});
+  /// The button's accessible name. It differs from the tooltip message: the
+  /// enclosing WTooltip publishes the message as the semantics tooltip, so a
+  /// label of the same text would be announced twice.
+  final String label;
+
+  const _IconAction({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
-    // No semanticLabel: the enclosing WTooltip publishes its message as the
-    // semantics tooltip, so a label of the same text would be spoken twice.
     return WButton(
       onTap: () {},
+      semanticLabel: label,
       className: '''
         p-3 rounded-lg
         bg-slate-100 dark:bg-slate-700

@@ -291,6 +291,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
   final LayerLink _layerLink = LayerLink();
   final OverlayPortalController _overlayController = OverlayPortalController();
   final FocusNode _focusNode = FocusNode();
+  final FocusNode _searchFocusNode = FocusNode();
   final GlobalKey _triggerKey = GlobalKey();
   final ScrollController _scrollController = ScrollController();
 
@@ -349,15 +350,46 @@ class _WSelectState<T> extends State<WSelect<T>> {
   /// The highlighted row: the hovered one, or the one the keyboard moved to.
   int _hoveredIndex = -1;
 
+  /// Whether the keyboard placed the highlight. Until the pointer actually
+  /// moves, a row that slides under a resting pointer (a reveal scrolled the
+  /// list) must not take the highlight over through its enter or exit.
+  bool _keyboardHighlight = false;
+
+  /// Counts keyboard moves of the highlight, so a pointer update queued
+  /// before one of them can tell it lost.
+  int _keyboardMoves = 0;
+
+  /// The option a remote re-filter under an unchanged query keeps highlighted
+  /// once its results land; null when no such re-filter is in flight.
+  SelectOption<T>? _refilterHighlight;
+
+  /// Whether that re-filter interrupted a reveal, which then resumes on the
+  /// option once the results land.
+  bool _refilterReveal = false;
+
   /// Whether a keyboard move still has to scroll its row into view.
   ///
-  /// While raised, the row at [_revealIndex] is wrapped in a [Builder] that
-  /// hands its context to [_revealContext], which is how the post-frame
-  /// reveal finds the row's render object without a key per row.
+  /// While raised, every row the list builds hands its context to
+  /// [_revealRows] from the [Builder] that wraps it, which is how the
+  /// post-frame reveal finds the target's render object without a key per row,
+  /// and which rows are built when the target is not one of them.
   bool _revealPending = false;
   bool _revealDownward = true;
   int _revealIndex = -1;
-  BuildContext? _revealContext;
+
+  /// The contexts of the rows built since the reveal was requested, by index.
+  final Map<int, BuildContext> _revealRows = {};
+
+  /// Whether the reveal spent its one proportional jump.
+  bool _revealJumped = false;
+
+  /// The direction the reveal steps in once it walks the list a viewport at a
+  /// time: 1 down, -1 up, 0 before the first step.
+  int _revealStep = 0;
+
+  /// Whether a reveal attempt is already queued for the next frame, so two
+  /// key presses inside one frame do not run two walks side by side.
+  bool _revealScheduled = false;
 
   @override
   void initState() {
@@ -375,10 +407,12 @@ class _WSelectState<T> extends State<WSelect<T>> {
       // A parent that builds `options` inline hands over a new list on every
       // rebuild, including the one a multi-select toggle triggers, so the
       // highlight follows its option into the new list instead of resetting.
+      // A remote re-filter still in flight has cleared the index, so its
+      // pending option stands in for it.
       final SelectOption<T>? highlighted =
           _hoveredIndex >= 0 && _hoveredIndex < _filteredOptions.length
           ? _filteredOptions[_hoveredIndex]
-          : null;
+          : _refilterHighlight;
       _filteredOptions = widget.options;
       // The other place the list is replaced wholesale, and the epoch covers
       // it for the same reason it covers the open: a page or a search captured
@@ -394,15 +428,34 @@ class _WSelectState<T> extends State<WSelect<T>> {
       // one. The open branch lowers it for the same reason.
       _listEpoch++;
       _isSearching = false;
-      _hoveredIndex = highlighted == null
-          ? -1
-          : widget.options.indexWhere(
-              (SelectOption<T> option) => option.value == highlighted.value,
-            );
-      if (_searchQuery.isNotEmpty) {
-        _filterOptions(_searchQuery);
+      // The query did not change, so a re-filter carries the highlight over to
+      // the filtered list rather than resetting it the way typing does.
+      if (_searchQuery.isEmpty) {
+        _hoveredIndex = _indexOfOption(_filteredOptions, highlighted);
+      } else {
+        _filterOptions(_searchQuery, highlighted: highlighted);
+      }
+      // A reveal in progress follows the highlight to its new row; the rows it
+      // recorded belong to the old list, and the rebuild records the new ones.
+      // A remote re-filter has no row to follow until its results land, so
+      // the reveal is parked and resumed there.
+      if (_revealPending && _isSearching) {
+        _refilterReveal = true;
+        _endReveal();
+      } else if (_revealPending) {
+        _requestReveal(_hoveredIndex, downward: _revealDownward);
       }
     }
+  }
+
+  /// The index of the option sharing [option]'s value in [options], or -1 when
+  /// [option] is null or absent.
+  int _indexOfOption(List<SelectOption<T>> options, SelectOption<T>? option) {
+    if (option == null) return -1;
+
+    return options.indexWhere(
+      (SelectOption<T> candidate) => candidate.value == option.value,
+    );
   }
 
   @override
@@ -410,6 +463,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
     FocusManager.instance.removeHighlightModeListener(_onHighlightModeChange);
     _focusNode.removeListener(_syncKeyboardFocus);
     _focusNode.dispose();
+    _searchFocusNode.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
@@ -492,11 +546,12 @@ class _WSelectState<T> extends State<WSelect<T>> {
         _searchQuery = '';
         _filteredOptions = widget.options;
         _hoveredIndex = keyboard ? _initialHighlight() : -1;
+        _keyboardHighlight = keyboard;
+        _keyboardMoves++;
+        _refilterHighlight = null;
+        _refilterReveal = false;
         // A selected option far down a long list opens off screen otherwise.
-        _revealIndex = _hoveredIndex;
-        _revealDownward = true;
-        _revealContext = null;
-        _revealPending = _hoveredIndex >= 0;
+        _requestReveal(_hoveredIndex, downward: true);
         // The query and the list are back to their defaults, so the search
         // that was in flight against the old query no longer owns this menu.
         // Leaving the flag set stranded the reopened menu on a spinner:
@@ -513,13 +568,13 @@ class _WSelectState<T> extends State<WSelect<T>> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || !_isOpen) return;
           _overlayController.show();
+          // The search field attaches with the overlay, and the request waits
+          // for it. `autofocus` was not enough: it is dropped while any other
+          // node in the scope holds focus, another text field included.
+          if (widget.searchable) _searchFocusNode.requestFocus();
           // The overlay builds on the frame after `show`, so the reveal waits
           // for that one.
-          if (_revealPending) {
-            WidgetsBinding.instance.addPostFrameCallback(
-              (_) => _revealHighlight(),
-            );
-          }
+          if (_revealPending) _scheduleReveal();
         });
       } else {
         _overlayController.hide();
@@ -536,14 +591,9 @@ class _WSelectState<T> extends State<WSelect<T>> {
 
     // A pointer open leaves focus wherever the tap put it, and the keys only
     // reach this widget from its trigger. A searchable menu hands focus to its
-    // own search field instead, and the field's autofocus only wins when
-    // nothing in the scope holds focus, so the trigger lets go of it first.
-    if (!isOpening) return;
-    if (widget.searchable) {
-      _focusNode.unfocus();
-    } else {
-      _focusNode.requestFocus();
-    }
+    // own search field instead, once the overlay mounts (above).
+    if (!isOpening || widget.searchable) return;
+    _focusNode.requestFocus();
   }
 
   /// Closes the menu. [restoreFocus] hands focus back to the trigger first,
@@ -664,15 +714,26 @@ class _WSelectState<T> extends State<WSelect<T>> {
     return KeyEventResult.handled;
   }
 
+  /// Selects the highlighted option, or runs the create action when the menu
+  /// shows it (no match for the typed query) and nothing is highlighted.
   void _selectHighlighted() {
-    if (_isSearching ||
-        _hoveredIndex < 0 ||
-        _hoveredIndex >= _filteredOptions.length) {
+    if (_isSearching) return;
+
+    if (_hoveredIndex >= 0 && _hoveredIndex < _filteredOptions.length) {
+      _selectOption(_filteredOptions[_hoveredIndex], restoreFocus: true);
+
       return;
     }
 
-    _selectOption(_filteredOptions[_hoveredIndex], restoreFocus: true);
+    if (_canCreate && !_isCreating) _createOption(restoreFocus: true);
   }
+
+  /// Whether the menu shows the create action, mirroring
+  /// [_buildOptionsContent].
+  bool get _canCreate =>
+      widget.onCreateOption != null &&
+      _searchQuery.isNotEmpty &&
+      _filteredOptions.isEmpty;
 
   /// Moves the highlight to [index] and scrolls its row into view. A -1 (no
   /// enabled option in that direction) leaves the highlight where it is, so it
@@ -683,25 +744,69 @@ class _WSelectState<T> extends State<WSelect<T>> {
     if (_isSearching || index == -1 || index == _hoveredIndex) return;
 
     setState(() {
-      _revealDownward = index > _hoveredIndex;
+      final bool downward = index > _hoveredIndex;
       _hoveredIndex = index;
-      _revealIndex = index;
-      _revealContext = null;
-      _revealPending = true;
+      _keyboardHighlight = true;
+      _keyboardMoves++;
+      _requestReveal(index, downward: downward);
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _revealHighlight());
+    _scheduleReveal();
+  }
+
+  /// Starts a reveal of the row at [index] (none for -1). Called inside a
+  /// `setState`, so the rebuild it triggers has every live row report itself.
+  void _requestReveal(int index, {required bool downward}) {
+    _revealIndex = index;
+    _revealDownward = downward;
+    _revealPending = index >= 0;
+    _revealJumped = false;
+    _revealStep = 0;
+    _revealRows.clear();
+  }
+
+  void _endReveal() {
+    _revealPending = false;
+    _revealRows.clear();
+  }
+
+  /// Queues one reveal attempt for after the next frame, once per frame.
+  void _scheduleReveal() {
+    if (_revealScheduled) return;
+
+    _revealScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _revealScheduled = false;
+      _revealHighlight();
+    });
   }
 
   /// Scrolls the highlighted row into view once the frame that built it ran.
   ///
-  /// A row the list has not built yet has no context to reveal, so the list
-  /// jumps to a proportional offset to get it built and the reveal runs once
-  /// more on the next frame.
-  void _revealHighlight({bool retry = true}) {
+  /// A row the list has not built yet has no context to reveal. The first miss
+  /// jumps to a proportional offset, which lands on or near the row when rows
+  /// share a height; every later miss scrolls one viewport toward the row and
+  /// tries again on the next frame. The built rows say which way the row lies,
+  /// so variable-height rows only cost more steps. The walk ends once the row
+  /// is revealed, once the target is gone (menu closed, highlight moved, list
+  /// shortened), or once a step cannot move the list or would turn back, so it
+  /// is bounded by real scroll progress rather than a retry count.
+  void _revealHighlight() {
     if (!mounted || !_revealPending) return;
 
-    final BuildContext? row = _revealContext;
-    if (row != null && row.mounted) {
+    // 1. The request outlived its target.
+    if (!_isOpen ||
+        _revealIndex != _hoveredIndex ||
+        _revealIndex >= _filteredOptions.length ||
+        !_scrollController.hasClients) {
+      _endReveal();
+
+      return;
+    }
+
+    // 2. The row is built, so it can be revealed exactly.
+    _revealRows.removeWhere((_, BuildContext row) => !row.mounted);
+    final BuildContext? row = _revealRows[_revealIndex];
+    if (row != null) {
       Scrollable.ensureVisible(
         row,
         duration: Duration.zero,
@@ -709,31 +814,66 @@ class _WSelectState<T> extends State<WSelect<T>> {
             ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd
             : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
       );
-      _revealPending = false;
-      _revealContext = null;
+      _endReveal();
 
       return;
     }
 
-    final int count = _filteredOptions.length;
-    if (!retry || count < 2 || !_scrollController.hasClients) {
-      _revealPending = false;
-
-      return;
-    }
-
+    // 3. Move the list toward the row and look again on the next frame.
     final ScrollPosition position = _scrollController.position;
-    final double fraction = _revealIndex / (count - 1);
-    _scrollController.jumpTo(
-      (position.maxScrollExtent * fraction).clamp(
-        position.minScrollExtent,
-        position.maxScrollExtent,
-      ),
-    );
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _revealHighlight(retry: false),
-    );
+    double? next = _revealJumped ? null : _proportionalRevealOffset(position);
+    _revealJumped = true;
+    if (next == null || next == position.pixels) {
+      next = _stepRevealOffset(position);
+    }
+    if (next == null || next == position.pixels) {
+      _endReveal();
+
+      return;
+    }
+
+    _scrollController.jumpTo(next);
+    _scheduleReveal();
     WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  /// The offset the target would sit at if every row shared one height.
+  double? _proportionalRevealOffset(ScrollPosition position) {
+    final int count = _filteredOptions.length;
+    if (count < 2) return null;
+
+    return (position.maxScrollExtent * _revealIndex / (count - 1)).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+  }
+
+  /// One viewport toward the target, judged from the rows that are built, or
+  /// null when no built row says which way it lies or the walk would turn
+  /// back on itself (the list moved under it).
+  double? _stepRevealOffset(ScrollPosition position) {
+    if (_revealRows.isEmpty) return null;
+
+    int first = _revealRows.keys.first;
+    int last = first;
+    for (final int index in _revealRows.keys) {
+      if (index < first) first = index;
+      if (index > last) last = index;
+    }
+
+    final int step = _revealIndex > last
+        ? 1
+        : _revealIndex < first
+        ? -1
+        : 0;
+    if (step == 0 || (_revealStep != 0 && step != _revealStep)) return null;
+
+    _revealStep = step;
+
+    return (position.pixels + step * position.viewportDimension).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
   }
 
   void _toggleMultiSelection(SelectOption<T> option) {
@@ -765,23 +905,49 @@ class _WSelectState<T> extends State<WSelect<T>> {
     });
   }
 
-  /// Deferred setState for hovered index to avoid mouse_tracker conflicts
+  /// Deferred setState for hovered index to avoid mouse_tracker conflicts.
+  ///
+  /// A pointer event schedules no frame of its own, so the callback asks for
+  /// one; without it the highlight waited for whatever drew next. A keyboard
+  /// move that lands before the callback runs bumps [_keyboardMoves], and the
+  /// stale pointer update then gives way to it.
   void _setHoveredIndex(int value) {
+    final int keyboardMoves = _keyboardMoves;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _hoveredIndex != value) {
+      if (mounted &&
+          keyboardMoves == _keyboardMoves &&
+          _hoveredIndex != value) {
         setState(() => _hoveredIndex = value);
       }
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
-  Future<void> _createOption() async {
+  /// A row entered or left the pointer. While the keyboard owns the highlight
+  /// this is a row sliding under a resting pointer, so it is ignored.
+  void _onRowPointerCrossing(int value) {
+    if (_keyboardHighlight) return;
+
+    _setHoveredIndex(value);
+  }
+
+  /// The pointer moved over a row, which hands the highlight back to it.
+  void _onRowPointerHover(int index) {
+    if (!_keyboardHighlight && _hoveredIndex == index) return;
+
+    _keyboardHighlight = false;
+    _setHoveredIndex(index);
+  }
+
+  /// [restoreFocus] is passed on to the selection, as a keyboard select does.
+  Future<void> _createOption({bool restoreFocus = false}) async {
     if (widget.onCreateOption == null || _searchQuery.isEmpty) return;
 
     setState(() => _isCreating = true);
     try {
       final newOption = await widget.onCreateOption!(_searchQuery);
       if (mounted) {
-        _selectOption(newOption);
+        _selectOption(newOption, restoreFocus: restoreFocus);
         setState(() {
           _searchQuery = '';
           _isCreating = false;
@@ -792,12 +958,24 @@ class _WSelectState<T> extends State<WSelect<T>> {
     }
   }
 
-  Future<void> _filterOptions(String query) async {
+  /// Filters the visible list by [query].
+  ///
+  /// A typed query starts the highlight over. [highlighted] is the option a
+  /// re-filter under the unchanged query keeps highlighted, found by value in
+  /// the new list (none when it dropped out of it).
+  Future<void> _filterOptions(
+    String query, {
+    SelectOption<T>? highlighted,
+  }) async {
     _searchQuery = query;
 
     if (widget.onSearch != null) {
       final int epoch = _listEpoch;
 
+      // Held outside `_hoveredIndex`, which the spinner clears, so a second
+      // refresh of `options` before this answers still finds the option.
+      _refilterHighlight = highlighted;
+      if (highlighted == null) _refilterReveal = false;
       setState(() {
         _isSearching = true;
         _hoveredIndex = -1;
@@ -807,9 +985,15 @@ class _WSelectState<T> extends State<WSelect<T>> {
         if (mounted && epoch == _listEpoch && _searchQuery == query) {
           setState(() {
             _filteredOptions = results;
-            _hoveredIndex = -1;
+            _hoveredIndex = _indexOfOption(results, _refilterHighlight);
+            if (_refilterReveal) {
+              _requestReveal(_hoveredIndex, downward: _revealDownward);
+            }
+            _refilterHighlight = null;
+            _refilterReveal = false;
             _isSearching = false;
           });
+          if (_revealPending) _scheduleReveal();
         }
       } catch (_) {
         // Guarded like the success path, and for the same reason: a request
@@ -818,13 +1002,14 @@ class _WSelectState<T> extends State<WSelect<T>> {
         // spinner while the newer search was still in flight, leaving the
         // pre-search list on screen looking settled until it landed.
         if (mounted && epoch == _listEpoch && _searchQuery == query) {
+          _refilterHighlight = null;
+          _refilterReveal = false;
           setState(() => _isSearching = false);
         }
       }
     } else {
       // Local filtering
       setState(() {
-        _hoveredIndex = -1;
         if (query.isEmpty) {
           _filteredOptions = widget.options;
         } else {
@@ -834,6 +1019,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
               )
               .toList();
         }
+        _hoveredIndex = _indexOfOption(_filteredOptions, highlighted);
       });
     }
   }
@@ -1272,7 +1458,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
       className: 'p-2',
       child: WInput(
         placeholder: widget.searchPlaceholder,
-        autofocus: true,
+        focusNode: _searchFocusNode,
         className:
             'p-2 border border-gray-300 dark:border-gray-600 rounded text-sm',
         onChanged: _filterOptions,
@@ -1381,9 +1567,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
         // moves on.
         return Builder(
           builder: (BuildContext rowContext) {
-            if (_revealPending && index == _revealIndex) {
-              _revealContext = rowContext;
-            }
+            if (_revealPending) _revealRows[index] = rowContext;
 
             return row;
           },
@@ -1402,8 +1586,9 @@ class _WSelectState<T> extends State<WSelect<T>> {
       return GestureDetector(
         onTap: () => _selectOption(option),
         child: MouseRegion(
-          onEnter: (_) => _setHoveredIndex(index),
-          onExit: (_) => _setHoveredIndex(-1),
+          onEnter: (_) => _onRowPointerCrossing(index),
+          onHover: (_) => _onRowPointerHover(index),
+          onExit: (_) => _onRowPointerCrossing(-1),
           cursor: option.disabled
               ? SystemMouseCursors.forbidden
               : SystemMouseCursors.click,
@@ -1437,8 +1622,9 @@ class _WSelectState<T> extends State<WSelect<T>> {
       child: GestureDetector(
         onTap: () => _selectOption(option),
         child: MouseRegion(
-          onEnter: (_) => _setHoveredIndex(index),
-          onExit: (_) => _setHoveredIndex(-1),
+          onEnter: (_) => _onRowPointerCrossing(index),
+          onHover: (_) => _onRowPointerHover(index),
+          onExit: (_) => _onRowPointerCrossing(-1),
           cursor: option.disabled
               ? SystemMouseCursors.forbidden
               : SystemMouseCursors.click,

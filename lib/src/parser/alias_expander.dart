@@ -152,7 +152,7 @@ String expandAliases(
     // that opacity in place of its own.
     if (replacement == null) {
       if (opacity != null && isColorClass != null) {
-        final base = _splitOpacity(body).base;
+        final base = _stripLeafOpacity(body);
         if (isColorClass(base)) {
           opacityApplied++;
           out.add('$prefix$base/$opacity');
@@ -232,6 +232,29 @@ String expandAliases(
   }
 
   return (base: bareClass.substring(0, slash), opacity: suffix);
+}
+
+/// Strips the `/M` opacity the colour parsers would read off a produced class.
+///
+/// Wider than [_splitOpacity], which gates the alias token the user wrote: the
+/// colour parsers take any integer (`/-5`) and any bracketed number
+/// (`/[-0.5]`, `/[50]`) through `parseColorOpacity`, so an inner suffix that
+/// narrower reading missed would survive the replacement and be appended to.
+/// The base must hold no further '/', as `parseColorOpacity` reads exactly one.
+String _stripLeafOpacity(String bareClass) {
+  final slash = bareClass.lastIndexOf('/');
+  if (slash <= 0) {
+    return bareClass;
+  }
+
+  final base = bareClass.substring(0, slash);
+  final suffix = bareClass.substring(slash + 1);
+  final isBracketed = suffix.startsWith('[') && suffix.endsWith(']');
+  final isNumber = isBracketed
+      ? double.tryParse(suffix.substring(1, suffix.length - 1)) != null
+      : int.tryParse(suffix) != null;
+
+  return isNumber && !base.contains('/') ? base : bareClass;
 }
 
 /// Splits a className string on whitespace, dropping empty fragments.

@@ -1320,6 +1320,142 @@ void main() {
       expect(trigger.hasFocus, isFalse);
       expect(after.hasPrimaryFocus, isTrue);
     });
+
+    // A mouse never moves the highlight mode off traditional, so the focus a
+    // pointer open hands the trigger read as keyboard focus and kept the ring
+    // painted after the menu closed.
+    Future<void> mouseClick(TestGesture gesture, Offset location) async {
+      await gesture.moveTo(location);
+      await gesture.down(location);
+      await gesture.up();
+    }
+
+    Future<TestGesture> mouse(WidgetTester tester) async {
+      // A key press puts the highlight mode in traditional, where a desktop
+      // starts and where a mouse leaves it.
+      await tester.sendKeyEvent(LogicalKeyboardKey.shiftLeft);
+      final TestGesture gesture = await tester.createGesture(
+        kind: PointerDeviceKind.mouse,
+      );
+      addTearDown(gesture.removePointer);
+      await gesture.addPointer(location: Offset.zero);
+
+      return gesture;
+    }
+
+    testWidgets('a mouse pick leaves no focus: classes on the trigger (#322)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WSelect<String>(
+            options: testOptions,
+            className: triggerClassName,
+            onChange: (_) {},
+          ),
+        ),
+      );
+      final Color? resting = triggerColor(tester);
+      final TestGesture gesture = await mouse(tester);
+
+      await mouseClick(
+        gesture,
+        tester.getCenter(find.text('Select an option')),
+      );
+      await tester.pumpAndSettle();
+      expect(triggerColor(tester), isNot(resting));
+
+      await mouseClick(gesture, tester.getCenter(find.text('Cherry')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cherry'), findsNothing);
+      expect(triggerColor(tester), resting);
+    });
+
+    testWidgets('a key after a mouse open paints the focus: classes (#322)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WSelect<String>(
+            options: testOptions,
+            className: triggerClassName,
+            onChange: (_) {},
+          ),
+        ),
+      );
+      final Color? resting = triggerColor(tester);
+      final TestGesture gesture = await mouse(tester);
+
+      await mouseClick(
+        gesture,
+        tester.getCenter(find.text('Select an option')),
+      );
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cherry'), findsNothing);
+      expect(triggerColor(tester), isNot(resting));
+    });
+
+    testWidgets(
+      'a keyboard pick keeps the focus: classes on the trigger (#322)',
+      (tester) async {
+        String? picked;
+        await tester.pumpWidget(
+          wrapWithTheme(
+            WSelect<String>(
+              options: testOptions,
+              className: triggerClassName,
+              onChange: (String value) => picked = value,
+            ),
+          ),
+        );
+        final Color? resting = triggerColor(tester);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        expect(picked, 'banana');
+        expect(find.text('Cherry'), findsNothing);
+        expect(triggerColor(tester), isNot(resting));
+      },
+    );
+
+    testWidgets('a mouse pick keeps the ring a Tab put there (#322)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WSelect<String>(
+            options: testOptions,
+            className: triggerClassName,
+            onChange: (_) {},
+          ),
+        ),
+      );
+      final Color? resting = triggerColor(tester);
+      final TestGesture gesture = await mouse(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      await mouseClick(
+        gesture,
+        tester.getCenter(find.text('Select an option')),
+      );
+      await tester.pumpAndSettle();
+      await mouseClick(gesture, tester.getCenter(find.text('Cherry')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cherry'), findsNothing);
+      expect(triggerColor(tester), isNot(resting));
+    });
   });
 
   // -------------------------------------------------------------------------

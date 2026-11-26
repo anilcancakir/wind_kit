@@ -1932,6 +1932,12 @@ class WDiv extends StatelessWidget {
             primary: scrollPrimary,
             child: WindMinWidthScrollScope(
               horizontalPort: port,
+              // The nearest scope wins the lookup, so this one has to carry the
+              // outer vertical flag on, or an `h-full` below a horizontal
+              // scroll inside a vertical one never reports its unbounded height.
+              verticalUnbounded:
+                  WindMinWidthScrollScope.maybeOf(context)?.verticalUnbounded ??
+                  false,
               child: WindMinWidthBox(
                 port: port,
                 // The div's own `min-w-*` sizes the scroll container, not what

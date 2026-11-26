@@ -271,6 +271,47 @@ void main() {
       });
     });
 
+    group('h-full in a horizontal scroll inside a vertical scroll', () {
+      testWidgets('still reports the unbounded height (#318)', (tester) async {
+        // The horizontal scroll installs its own scope, which has to carry the
+        // outer vertical flag on, or the guard returns early and the height
+        // falls back to the screen height without a word.
+        await pumpScroll(
+          tester,
+          const WDiv(
+            className: 'overflow-y-auto',
+            child: WDiv(
+              className: 'overflow-x-auto',
+              child: WDiv(className: 'h-full', child: _FixedWidthProbe()),
+            ),
+          ),
+        );
+
+        final Object? error = tester.takeException();
+        expect(error, isA<AssertionError>());
+        expect(error.toString(), contains('`flex-1 overflow-y-auto`'));
+      });
+
+      testWidgets('fills a bounded parent in between (#318)', (tester) async {
+        await pumpScroll(
+          tester,
+          const WDiv(
+            className: 'overflow-y-auto',
+            child: WDiv(
+              className: 'h-40',
+              child: WDiv(
+                className: 'overflow-x-auto',
+                child: WDiv(className: 'h-full', child: _FixedWidthProbe()),
+              ),
+            ),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(find.byType(_FixedWidthProbe)).height, 160);
+      });
+    });
+
     testWidgets('a padding-only WDiv in between still reports, since it passes '
         'the unbounded height on (#318)', (tester) async {
       await pumpScroll(
@@ -340,4 +381,13 @@ class _Probe extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const SizedBox.expand();
+}
+
+/// A probe with a fixed width, for a horizontal scroll whose width is unbounded.
+class _FixedWidthProbe extends StatelessWidget {
+  const _FixedWidthProbe();
+
+  @override
+  Widget build(BuildContext context) =>
+      const SizedBox(width: 50, height: double.infinity);
 }

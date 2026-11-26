@@ -31,7 +31,7 @@ Wrap the widget that should explain itself and give it a `message`. The tooltip 
 WTooltip(
   message: 'Delete this draft',
   alignment: PopoverAlignment.topCenter,
-  child: WIcon(Icons.delete_outline, className: 'text-gray-500 dark:text-gray-400'),
+  child: WIcon(Icons.delete_outlined, className: 'text-gray-500 dark:text-gray-400'),
 )
 ```
 
@@ -66,7 +66,7 @@ const WTooltip({
 ## Behaviour
 
 - **Hover**: the tooltip shows once the pointer has hovered the child for `hoverDelay` and hides when the pointer leaves. The box itself is hoverable, so moving the pointer from the child onto the tooltip keeps it open.
-- **Keyboard focus**: when focus reaches the child, the tooltip shows at once, and it hides again on blur, but only while that tooltip is still open from the focus: a blur does nothing after Escape or a pointer press has already closed it. `RawTooltip` has no per-instance hide, so a blur that does close the tooltip focus opened also closes any other tooltip that is open at that moment, a hovered one included. It does so only while Flutter's focus highlight mode is the keyboard one, so a touch focus does not pop it. On desktop and web that mode also stays active after mouse input, so a click that moves focus into the child shows the tooltip at once and it stays until blur.
+- **Keyboard focus**: when focus reaches the child, the tooltip shows at once, and it hides again on blur, but only while that tooltip is still open from the focus: a blur does nothing after Escape or a pointer press has already closed it, and never hides a tooltip the pointer is still over, whether hover or focus came first: it then ends when the pointer leaves. `RawTooltip` has no per-instance hide, so a blur that does close the tooltip focus opened also closes any other tooltip that is open at that moment. It does so only while Flutter's focus highlight mode is the keyboard one, so a touch focus does not pop it. On desktop and web that mode also stays active after mouse input, so a click that moves focus into the child shows the tooltip at once and it stays until blur.
 - **Long press**: on touch, a long press shows the tooltip, and it stays for 1.5 seconds after the finger lifts.
 - **Escape**: Escape dismisses every open tooltip. While no tooltip is open, Escape is left alone and reaches the app's own shortcuts.
 - **Never takes focus**: `WTooltip` is not a Tab stop and never becomes the primary focus, even when `className` carries a `focus:` class. The child keeps its own focus behaviour.

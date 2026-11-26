@@ -86,6 +86,12 @@ class _WTooltipState extends State<WTooltip> {
   /// leaving), so a blur after that never reaches another tooltip.
   bool _shownByFocus = false;
 
+  /// Whether a mouse pointer is over the child or the open box. A blur never
+  /// hides a tooltip the pointer is still over, whichever of hover and focus
+  /// came first: the tooltip then ends with the pointer, as [RawTooltip] does.
+  bool _overChild = false;
+  bool _overBox = false;
+
   /// Whether the message overflows the capped box and scrolls. [RawTooltip]
   /// dismisses on any pointer press it does not own, which includes the one
   /// that starts a drag inside the box, so tap dismissal is off while this is
@@ -109,7 +115,11 @@ class _WTooltipState extends State<WTooltip> {
         skipTraversal: true,
         includeSemantics: false,
         onFocusChange: _onFocusChange,
-        child: widget.child,
+        child: MouseRegion(
+          onEnter: (_) => _overChild = true,
+          onExit: (_) => _overChild = false,
+          child: widget.child,
+        ),
       ),
     );
   }
@@ -121,7 +131,9 @@ class _WTooltipState extends State<WTooltip> {
     if (!hasFocus) {
       if (_shownByFocus) {
         _shownByFocus = false;
-        RawTooltip.dismissAllToolTips();
+        if (!_overChild && !_overBox) {
+          RawTooltip.dismissAllToolTips();
+        }
       }
       return;
     }
@@ -208,6 +220,7 @@ class _WTooltipState extends State<WTooltip> {
 
   void _handleClosed() {
     _shownByFocus = false;
+    _overBox = false;
   }
 
   /// Runs after the frame that laid the message out, so [setState] is safe.
@@ -229,27 +242,34 @@ class _WTooltipState extends State<WTooltip> {
     return _OpenTooltip(
       animation: animation,
       onClosed: _handleClosed,
-      child: ExcludeFocus(
-        child: FadeTransition(
-          opacity: animation,
-          child: LayoutBuilder(
-            builder: (BuildContext context, BoxConstraints constraints) {
-              return ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: math.max(0.0, constraints.maxHeight - _margin * 2),
-                ),
-                child: WDiv(
-                  className: widget.className ?? _defaultClassName,
-                  child: NotificationListener<ScrollMetricsNotification>(
-                    onNotification: _handleScrollMetrics,
-                    child: SingleChildScrollView(
-                      primary: false,
-                      child: WText(widget.message),
+      child: MouseRegion(
+        onEnter: (_) => _overBox = true,
+        onExit: (_) => _overBox = false,
+        child: ExcludeFocus(
+          child: FadeTransition(
+            opacity: animation,
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                return ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: math.max(
+                      0.0,
+                      constraints.maxHeight - _margin * 2,
                     ),
                   ),
-                ),
-              );
-            },
+                  child: WDiv(
+                    className: widget.className ?? _defaultClassName,
+                    child: NotificationListener<ScrollMetricsNotification>(
+                      onNotification: _handleScrollMetrics,
+                      child: SingleChildScrollView(
+                        primary: false,
+                        child: WText(widget.message),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),

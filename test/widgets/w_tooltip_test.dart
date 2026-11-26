@@ -343,6 +343,71 @@ void main() {
         },
       );
 
+      testWidgets(
+        'keeps a hovered tooltip open on blur, hover then focus (#323)',
+        (tester) async {
+          _highlight(FocusHighlightStrategy.alwaysTraditional);
+          final FocusNode first = _node('first');
+          final FocusNode next = _node('next');
+          await tester.pumpWidget(
+            wrapWithTheme(
+              _focusTooltip(first: first, next: next, ancestorEscapes: []),
+            ),
+          );
+          final TestGesture gesture = await _mouse(tester);
+          await gesture.moveTo(tester.getCenter(find.byKey(_triggerKey)));
+          await tester.pump(const Duration(milliseconds: 500));
+          await tester.pump(const Duration(milliseconds: 200));
+          first.requestFocus();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+          expect(find.text(_message), findsOneWidget);
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pumpAndSettle();
+
+          expect(next.hasPrimaryFocus, isTrue);
+          expect(find.text(_message), findsOneWidget);
+
+          await gesture.moveTo(const Offset(700, 500));
+          await tester.pumpAndSettle();
+
+          expect(find.text(_message), findsNothing);
+        },
+      );
+
+      testWidgets(
+        'keeps a hovered tooltip open on blur, focus then hover (#323)',
+        (tester) async {
+          _highlight(FocusHighlightStrategy.alwaysTraditional);
+          final FocusNode first = _node('first');
+          final FocusNode next = _node('next');
+          await tester.pumpWidget(
+            wrapWithTheme(
+              _focusTooltip(first: first, next: next, ancestorEscapes: []),
+            ),
+          );
+          first.requestFocus();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+          expect(find.text(_message), findsOneWidget);
+          final TestGesture gesture = await _mouse(tester);
+          await gesture.moveTo(tester.getCenter(find.byKey(_triggerKey)));
+          await tester.pump(const Duration(milliseconds: 600));
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pumpAndSettle();
+
+          expect(next.hasPrimaryFocus, isTrue);
+          expect(find.text(_message), findsOneWidget);
+
+          await gesture.moveTo(const Offset(700, 500));
+          await tester.pumpAndSettle();
+
+          expect(find.text(_message), findsNothing);
+        },
+      );
+
       testWidgets('hides a hover-shown tooltip on Escape (#323)', (
         tester,
       ) async {

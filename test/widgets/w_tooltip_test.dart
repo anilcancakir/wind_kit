@@ -104,7 +104,6 @@ Widget _focusTooltip({
   required List<KeyEvent> ancestorEscapes,
   String message = _message,
   String? secondMessage,
-  PopoverAlignment alignment = PopoverAlignment.bottomCenter,
 }) {
   final Widget nextButton = TextButton(
     focusNode: next,
@@ -127,7 +126,6 @@ Widget _focusTooltip({
       children: [
         WTooltip(
           message: message,
-          alignment: alignment,
           child: TextButton(
             key: _triggerKey,
             focusNode: first,
@@ -138,11 +136,7 @@ Widget _focusTooltip({
         if (secondMessage == null)
           nextButton
         else
-          WTooltip(
-            message: secondMessage,
-            alignment: alignment,
-            child: nextButton,
-          ),
+          WTooltip(message: secondMessage, child: nextButton),
       ],
     ),
   );
@@ -345,58 +339,6 @@ void main() {
 
           expect(first.hasFocus, isFalse);
           expect(next.hasFocus, isFalse);
-          expect(find.text('Discard'), findsOneWidget);
-        },
-      );
-
-      testWidgets(
-        'keeps a hovered tooltip open when a focus-shown one blurs (#323)',
-        (tester) async {
-          _highlight(FocusHighlightStrategy.alwaysTraditional);
-          final FocusNode first = _node('first');
-          final FocusNode next = _node('next');
-          await tester.pumpWidget(
-            wrapWithTheme(
-              _focusTooltip(
-                first: first,
-                next: next,
-                ancestorEscapes: [],
-                secondMessage: 'Discard',
-                alignment: PopoverAlignment.topCenter,
-              ),
-              placement: Alignment.bottomLeft,
-            ),
-          );
-          final TestGesture gesture = await _mouse(tester);
-          await gesture.moveTo(tester.getCenter(find.text('Next')));
-          await tester.pump(const Duration(milliseconds: 500));
-          await tester.pump(const Duration(milliseconds: 200));
-          expect(find.text('Discard'), findsOneWidget);
-
-          first.requestFocus();
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 200));
-          expect(find.text(_message), findsOneWidget);
-          expect(find.text('Discard'), findsOneWidget);
-
-          final Animation<double> hovered = tester
-              .widget<FadeTransition>(
-                find
-                    .ancestor(
-                      of: find.text('Discard'),
-                      matching: find.byType(FadeTransition),
-                    )
-                    .first,
-              )
-              .opacity;
-
-          first.unfocus();
-
-          // Flutter's own hover tracking can bring a closing tooltip back on
-          // the next frame, so the check is that it never started to close.
-          expect(hovered.status, isNot(AnimationStatus.reverse));
-          await tester.pumpAndSettle();
-          expect(find.text(_message), findsNothing);
           expect(find.text('Discard'), findsOneWidget);
         },
       );

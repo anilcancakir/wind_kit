@@ -306,6 +306,15 @@ class _WSelectState<T> extends State<WSelect<T>> {
   /// focus. Never true while disabled.
   bool _hasKeyboardFocus = false;
 
+  /// Whether the trigger's focus came from a pointer open and no key has
+  /// reached the select since.
+  ///
+  /// A mouse leaves the highlight mode in traditional, so the highlight mode
+  /// alone read that focus as keyboard focus and kept the `focus:` ring
+  /// painted after the menu closed. Lowered by the next key down and whenever
+  /// the trigger loses focus.
+  bool _hasPointerFocus = false;
+
   /// The theme's `primary` swatch, used for the raw [Icon] colors that cannot
   /// take a className. `primary` is always present in the resolved color map
   /// (Wind seeds it into the default theme), so the brand color drives these
@@ -472,9 +481,12 @@ class _WSelectState<T> extends State<WSelect<T>> {
   void _onHighlightModeChange(FocusHighlightMode mode) => _syncKeyboardFocus();
 
   void _syncKeyboardFocus() {
+    if (!_focusNode.hasFocus) _hasPointerFocus = false;
+
     final bool hasKeyboardFocus =
         !widget.disabled &&
         _focusNode.hasFocus &&
+        !_hasPointerFocus &&
         FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
 
     if (hasKeyboardFocus != _hasKeyboardFocus) {
@@ -592,7 +604,10 @@ class _WSelectState<T> extends State<WSelect<T>> {
     // A pointer open leaves focus wherever the tap put it, and the keys only
     // reach this widget from its trigger. A searchable menu hands focus to its
     // own search field instead, once the overlay mounts (above).
+    // A keyboard open arrives here with the flag already lowered by its key,
+    // and a trigger a Tab focused keeps its ring through a click.
     if (!isOpening || widget.searchable) return;
+    if (!_hasKeyboardFocus) _hasPointerFocus = true;
     _focusNode.requestFocus();
   }
 
@@ -655,6 +670,11 @@ class _WSelectState<T> extends State<WSelect<T>> {
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     if (widget.disabled) return KeyEventResult.ignored;
+    // A key is keyboard use, so a ring a pointer open held back shows now.
+    if (_hasPointerFocus && event is KeyDownEvent) {
+      _hasPointerFocus = false;
+      _syncKeyboardFocus();
+    }
     // This `Focus` also sits above a custom trigger's own focusable (a text
     // field, say), whose Space and Enter belong to it.
     if (node == _focusNode && !node.hasPrimaryFocus) {

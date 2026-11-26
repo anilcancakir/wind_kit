@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -358,7 +359,17 @@ class _WPopoverState extends State<WPopover> {
   /// Whether [_focusNode] is itself the focus rather than an ancestor of it.
   bool _hasPrimaryFocus = false;
 
-  /// Armed by a keyboard open, spent on the first focus change after it.
+  /// Whether the trigger's focus came from a pointer open and no key has
+  /// reached the popover since.
+  ///
+  /// A pointer open moves focus to the trigger so Escape reaches the popover,
+  /// but a ring there would answer a click, so the `focus:` state goes down
+  /// only once a key shows keyboard use. Lowered by the next key down and
+  /// whenever focus leaves the popover, the way `WSelect` holds its ring.
+  bool _hasPointerFocus = false;
+
+  /// Armed by a keyboard or a pointer open, spent on the first focus change
+  /// after it.
   ///
   /// Escape depends on it as well: the Escape handler sits on the focus tree,
   /// so it hears the key only while focus is on the trigger or in the panel.
@@ -609,6 +620,8 @@ class _WPopoverState extends State<WPopover> {
       }
     }
 
+    if (!_focusNode.hasFocus) _hasPointerFocus = false;
+
     if (_focusNode.hasFocus == _hasFocus &&
         _focusNode.hasPrimaryFocus == _hasPrimaryFocus) {
       return;
@@ -619,12 +632,17 @@ class _WPopoverState extends State<WPopover> {
     });
   }
 
-  /// Whether nothing a viewer can act on holds focus: it fell back to a scope,
-  /// or is nowhere at all.
+  /// Whether nothing a viewer can act on holds focus: it fell back to a scope
+  /// around the trigger, or is nowhere at all.
+  ///
+  /// A scope elsewhere is not a drop: a page a panel item pushed takes focus
+  /// into its own route's scope, and pulling it back would hand that page's
+  /// Escape to the hidden trigger below.
   bool get _focusFellToAScope {
     final FocusNode? primary = FocusManager.instance.primaryFocus;
+    if (primary == null) return true;
 
-    return primary == null || primary is FocusScopeNode;
+    return primary is FocusScopeNode && _focusNode.ancestors.contains(primary);
   }
 
   Object? _activate(Intent intent) {
@@ -633,6 +651,26 @@ class _WPopoverState extends State<WPopover> {
     _reclaimFocusOnce = opening && _isOpen;
 
     return null;
+  }
+
+  /// Toggles from a primary pointer press and, on an open, moves focus to the
+  /// trigger so Escape closes the popover whatever the trigger widget is.
+  ///
+  /// A plain `WDiv` trigger takes no focus of its own, so before this a
+  /// pointer open left focus wherever it was and Escape went nowhere (#347).
+  /// Focus already inside the trigger (a Tab stop) is left where it is, and so
+  /// is a touch outside the browser: a phone keeps a text field's focus and
+  /// its keyboard through a touch elsewhere (`EditableText` unfocuses on touch
+  /// only on the web), and has no Escape key to pay for taking them.
+  void _toggleFromPointer(PointerDownEvent event) {
+    final bool opening = !_isOpen;
+    toggle();
+    if (!opening || !_isOpen || _focusNode.hasFocus) return;
+    if (event.kind == PointerDeviceKind.touch && !kIsWeb) return;
+
+    _hasPointerFocus = true;
+    _reclaimFocusOnce = true;
+    _focusNode.requestFocus();
   }
 
   /// Closes an open popover on Escape, from the trigger or from anything
@@ -650,6 +688,11 @@ class _WPopoverState extends State<WPopover> {
   /// for an intent, so a disabled one would swallow Escape and a dialog
   /// holding a closed popover would stop closing on it.
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    // A key is keyboard use, so a ring a pointer open held back shows now.
+    if (_hasPointerFocus && event is KeyDownEvent) {
+      setState(() => _hasPointerFocus = false);
+    }
+
     if (!_isOpen ||
         event is! KeyDownEvent ||
         event.logicalKey != LogicalKeyboardKey.escape) {
@@ -865,8 +908,8 @@ class _WPopoverState extends State<WPopover> {
           child: WindAnchorStateProvider(
             state: WindAnchorState(
               isHovering: _isHovering,
-              isFocused: _hasFocus,
-              hasPrimaryFocus: _hasPrimaryFocus,
+              isFocused: _hasFocus && !_hasPointerFocus,
+              hasPrimaryFocus: _hasPrimaryFocus && !_hasPointerFocus,
               isDisabled: widget.disabled,
             ),
             child: _buildTrigger(context),
@@ -963,7 +1006,7 @@ class _WPopoverState extends State<WPopover> {
           onTap: widget.disabled ? null : toggle,
           child: Listener(
             onPointerDown: (event) {
-              if (event.buttons == kPrimaryButton) toggle();
+              if (event.buttons == kPrimaryButton) _toggleFromPointer(event);
             },
             child: trigger,
           ),

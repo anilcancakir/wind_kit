@@ -46,9 +46,10 @@ class GridColsExamplePage extends StatelessWidget {
           title: 'Column Span',
           description:
               'col-span-{n} makes a child n columns wide plus the gaps between them, capped at the column count. '
-              'col-span-full takes the whole row, and a prefix such as md:col-span-2 applies from that breakpoint up.',
+              'col-span-full takes the whole row, and a prefix such as md:col-span-2 applies from that breakpoint up. '
+              'The grid uses two columns below sm so the labels fit a phone.',
           child: WDiv(
-            className: 'grid grid-cols-4 gap-3',
+            className: 'grid grid-cols-2 sm:grid-cols-4 gap-3',
             children: [
               WDiv(
                 className: '''

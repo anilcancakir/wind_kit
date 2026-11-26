@@ -355,9 +355,17 @@ class _WSelectState<T> extends State<WSelect<T>> {
   /// list) must not take the highlight over through its enter or exit.
   bool _keyboardHighlight = false;
 
+  /// Counts keyboard moves of the highlight, so a pointer update queued
+  /// before one of them can tell it lost.
+  int _keyboardMoves = 0;
+
   /// The option a remote re-filter under an unchanged query keeps highlighted
   /// once its results land; null when no such re-filter is in flight.
   SelectOption<T>? _refilterHighlight;
+
+  /// Whether that re-filter interrupted a reveal, which then resumes on the
+  /// option once the results land.
+  bool _refilterReveal = false;
 
   /// Whether a keyboard move still has to scroll its row into view.
   ///
@@ -429,7 +437,12 @@ class _WSelectState<T> extends State<WSelect<T>> {
       }
       // A reveal in progress follows the highlight to its new row; the rows it
       // recorded belong to the old list, and the rebuild records the new ones.
-      if (_revealPending) {
+      // A remote re-filter has no row to follow until its results land, so
+      // the reveal is parked and resumed there.
+      if (_revealPending && _isSearching) {
+        _refilterReveal = true;
+        _endReveal();
+      } else if (_revealPending) {
         _requestReveal(_hoveredIndex, downward: _revealDownward);
       }
     }
@@ -534,7 +547,9 @@ class _WSelectState<T> extends State<WSelect<T>> {
         _filteredOptions = widget.options;
         _hoveredIndex = keyboard ? _initialHighlight() : -1;
         _keyboardHighlight = keyboard;
+        _keyboardMoves++;
         _refilterHighlight = null;
+        _refilterReveal = false;
         // A selected option far down a long list opens off screen otherwise.
         _requestReveal(_hoveredIndex, downward: true);
         // The query and the list are back to their defaults, so the search
@@ -732,6 +747,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
       final bool downward = index > _hoveredIndex;
       _hoveredIndex = index;
       _keyboardHighlight = true;
+      _keyboardMoves++;
       _requestReveal(index, downward: downward);
     });
     _scheduleReveal();
@@ -892,10 +908,15 @@ class _WSelectState<T> extends State<WSelect<T>> {
   /// Deferred setState for hovered index to avoid mouse_tracker conflicts.
   ///
   /// A pointer event schedules no frame of its own, so the callback asks for
-  /// one; without it the highlight waited for whatever drew next.
+  /// one; without it the highlight waited for whatever drew next. A keyboard
+  /// move that lands before the callback runs bumps [_keyboardMoves], and the
+  /// stale pointer update then gives way to it.
   void _setHoveredIndex(int value) {
+    final int keyboardMoves = _keyboardMoves;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _hoveredIndex != value) {
+      if (mounted &&
+          keyboardMoves == _keyboardMoves &&
+          _hoveredIndex != value) {
         setState(() => _hoveredIndex = value);
       }
     });
@@ -954,6 +975,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
       // Held outside `_hoveredIndex`, which the spinner clears, so a second
       // refresh of `options` before this answers still finds the option.
       _refilterHighlight = highlighted;
+      if (highlighted == null) _refilterReveal = false;
       setState(() {
         _isSearching = true;
         _hoveredIndex = -1;
@@ -964,9 +986,14 @@ class _WSelectState<T> extends State<WSelect<T>> {
           setState(() {
             _filteredOptions = results;
             _hoveredIndex = _indexOfOption(results, _refilterHighlight);
+            if (_refilterReveal) {
+              _requestReveal(_hoveredIndex, downward: _revealDownward);
+            }
             _refilterHighlight = null;
+            _refilterReveal = false;
             _isSearching = false;
           });
+          if (_revealPending) _scheduleReveal();
         }
       } catch (_) {
         // Guarded like the success path, and for the same reason: a request
@@ -976,6 +1003,7 @@ class _WSelectState<T> extends State<WSelect<T>> {
         // pre-search list on screen looking settled until it landed.
         if (mounted && epoch == _listEpoch && _searchQuery == query) {
           _refilterHighlight = null;
+          _refilterReveal = false;
           setState(() => _isSearching = false);
         }
       }

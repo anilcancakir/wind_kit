@@ -558,11 +558,50 @@ void main() {
         );
         await gesture.addPointer(location: Offset.zero);
         addTearDown(gesture.removePointer);
+        expect(tester.binding.hasScheduledFrame, isFalse);
+
         await gesture.moveTo(tester.getCenter(find.text('Cherry')));
-        // Only frames the hover itself asked for are pumped.
+        // The hover itself has to ask for the frame that applies it.
+        expect(tester.binding.hasScheduledFrame, isTrue);
         await tester.pumpAndSettle();
 
         expect(_highlighted(seen), ['Cherry']);
+      },
+    );
+
+    testWidgets(
+      'keeps an arrow move made before a queued pointer highlight lands (#322)',
+      (tester) async {
+        final Map<String, bool> seen = {};
+        final List<String> changes = [];
+        final List<SelectOption<String>> five = List.generate(
+          5,
+          (int i) => SelectOption(value: 'o$i', label: 'Option $i'),
+        );
+        await tester.pumpWidget(
+          wrapWithTheme(
+            _select(seen: seen, options: five, onChange: changes.add),
+          ),
+        );
+
+        await _tapOpen(tester);
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        expect(_highlighted(seen), ['Option 0']);
+
+        final TestGesture gesture = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        await gesture.addPointer(location: Offset.zero);
+        addTearDown(gesture.removePointer);
+        // The pointer lands on row 2 and the arrow key follows inside the
+        // same frame, before the pointer's deferred update runs.
+        await gesture.moveTo(tester.getCenter(find.text('Option 2')));
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+        expect(_highlighted(seen), ['Option 1']);
+
+        await _press(tester, LogicalKeyboardKey.enter);
+        expect(changes, ['o1']);
       },
     );
 
@@ -922,6 +961,69 @@ void main() {
         expect(values, isEmpty);
         searches.last.complete(cherry);
         await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets(
+      'reveals the highlight once a remote refresh restores it (#322)',
+      (tester) async {
+        final Map<String, bool> seen = {};
+        final List<Completer<List<SelectOption<String>>>> searches = [];
+        final List<SelectOption<String>> many = List.generate(
+          60,
+          (int i) => SelectOption(value: 'o$i', label: 'Option $i'),
+        );
+        List<SelectOption<String>> options = many;
+        late StateSetter rebuild;
+        await tester.pumpWidget(
+          wrapWithTheme(
+            StatefulBuilder(
+              builder: (context, setState) {
+                rebuild = setState;
+
+                return WSelect<String>(
+                  options: options,
+                  onChange: (_) {},
+                  searchable: true,
+                  maxMenuHeight: 200,
+                  onSearch: (_) {
+                    final Completer<List<SelectOption<String>>> search =
+                        Completer<List<SelectOption<String>>>();
+                    searches.add(search);
+
+                    return search.future;
+                  },
+                  itemBuilder: _recording(seen),
+                );
+              },
+            ),
+          ),
+        );
+
+        await _tapOpen(tester);
+        await tester.enterText(find.byType(EditableText), 'Option');
+        await tester.pump();
+        searches.single.complete(many);
+        await tester.pumpAndSettle();
+
+        // The arrow starts a reveal of the last row, and the refresh lands in
+        // the same frame, before that reveal ran.
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        rebuild(() => options = [...many]);
+        await tester.pump();
+        expect(searches, hasLength(2));
+        searches.last.complete(many);
+        await tester.pumpAndSettle();
+
+        final Finder label = find.text('Option 59');
+        expect(label, findsOneWidget);
+        final Rect menu = tester.getRect(
+          find.ancestor(of: label, matching: find.byType(Container)).first,
+        );
+        final Rect row = tester.getRect(label);
+        expect(_highlighted(seen), contains('Option 59'));
+        expect(menu.contains(row.topLeft), isTrue);
+        expect(menu.contains(row.bottomRight), isTrue);
       },
     );
 

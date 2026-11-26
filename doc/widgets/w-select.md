@@ -150,7 +150,7 @@ WSelect<String>(
 ```
 
 ### Window Edge
-An open menu stays inside the window horizontally. When the menu is wider than the room to the right of the trigger (a narrow trigger at the end of a row, or a fixed `menuClassName` width such as `w-64`), it shifts left and sits 8 px inside the window edge. A menu that already fits is not moved, and a menu narrower than the trigger stays aligned with the trigger's left edge. The same applies when the menu opens upward.
+An open menu stays inside the window horizontally. When the menu is wider than the room to the right of the trigger (a narrow trigger at the end of a row, or a fixed `menuClassName` width such as `w-64`), it shifts left and sits 8 px inside the window edge. A menu that already fits is not moved, and a menu narrower than the trigger stays aligned with the trigger's left edge. The same applies when the menu opens upward. The menu width is not capped, so the 8 px inset holds only while the menu fits in the window: a menu wider than the window keeps its left edge 8 px in and overflows on the right.
 
 <a name="event-handling"></a>
 ## Event Handling

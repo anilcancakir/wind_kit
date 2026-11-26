@@ -117,6 +117,70 @@ class AnchorBasicExamplePage extends StatelessWidget {
             ),
           ),
         ),
+        const ExampleSection(
+          title: 'Focus From Code',
+          description: 'Pass your own FocusNode to request focus without an outer Focus wrapper. The anchor never disposes it; the state below creates and disposes it.',
+          child: _FocusNodeDemo(),
+        ),
+      ],
+    );
+  }
+}
+
+class _FocusNodeDemo extends StatefulWidget {
+  const _FocusNodeDemo();
+
+  @override
+  State<_FocusNodeDemo> createState() => _FocusNodeDemoState();
+}
+
+class _FocusNodeDemoState extends State<_FocusNodeDemo> {
+  late final FocusNode _node;
+
+  @override
+  void initState() {
+    super.initState();
+    _node = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _node.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WDiv(
+      className: 'flex flex-row items-center gap-3',
+      children: [
+        WAnchor(
+          focusNode: _node,
+          onTap: () {},
+          semanticLabel: 'Save',
+          child: WDiv(
+            className: '''
+              px-4 py-2 rounded-lg duration-200
+              bg-violet-600 dark:bg-violet-500
+              hover:bg-violet-700 dark:hover:bg-violet-400
+              focus:ring-2 focus:ring-violet-300 dark:focus:ring-violet-200
+            ''',
+            child: const WText('Save', className: 'text-white font-medium'),
+          ),
+        ),
+        WButton(
+          onTap: _node.requestFocus,
+          className: '''
+            px-4 py-2 rounded-lg duration-200
+            bg-slate-200 dark:bg-slate-700
+            hover:bg-slate-300 dark:hover:bg-slate-600
+            focus:ring-2 focus:ring-violet-400 dark:focus:ring-violet-300
+          ''',
+          child: const WText(
+            'Focus Save',
+            className: 'text-slate-900 dark:text-white font-medium',
+          ),
+        ),
       ],
     );
   }

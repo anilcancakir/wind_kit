@@ -248,6 +248,8 @@ const WAnchor({
   MouseCursor? mouseCursor,           // click with gestures, basic when disabled, MouseCursor.defer with none
   String? semanticLabel,              // accessible name for icon-only anchors (no child text for Semantics to absorb)
   bool trackFocus = true,             // gestureless only: false drops the Focus node (WDiv passes false without focus:)
+  FocusNode? focusNode,               // caller-owned, never disposed by the anchor; installs Focus even when gestureless
+  bool autofocus = false,             // takes focus on the first frame when nothing in scope has it
 })
 ```
 
@@ -257,7 +259,7 @@ Three accessibility paths, checked in this order:
 2. No label and no gesture: no node of its own.
 3. No label, with a gesture: `MergeSemantics` → `Semantics(button: true, enabled: !isDisabled)` → the rest below.
 
-The rest, in all three: `MouseRegion(onEnter/onExit)` → `WindAnchorStateProvider` (broadcasts hover/focus/disabled state) → optional `GestureDetector` and `Actions` (both only if any callback is non-null) → `Focus` (with a gesture, or when `trackFocus` is true) → `child`.
+The rest, in all three: `MouseRegion(onEnter/onExit)` → `WindAnchorStateProvider` (broadcasts hover/focus/disabled state) → optional `GestureDetector` and `Actions` (both only if any callback is non-null) → `Focus` (with a gesture, or when `trackFocus` is true, or when `focusNode` / `autofocus` is given) → `child`.
 
 State tracking:
 - Hover: `MouseRegion.onEnter` / `onExit` set `_isHovering`; calls `setState` only on change.
@@ -267,9 +269,9 @@ State tracking:
 Keyboard and remote activation:
 - `Actions` maps `ActivateIntent` and `ButtonActivateIntent` to `onTap`, and is installed only when `onTap != null && !isDisabled`. `WidgetsApp` raises those intents for `Enter`, `Space`, numpad `Enter`, gamepad A and `select` (the Android TV D-pad centre, the Apple TV remote click), so `WAnchor` binds no key itself and inherits whatever the platform adds. Only `onTap` is bound: `ActivateIntent` is the primary action and there is no second key for `onLongPress` / `onDoubleTap`.
 - The install gate is narrower than `hasGestures` on purpose. A `CallbackAction` is always enabled and `ShortcutManager` reports a key handled for any enabled action, so an always-installed map made a long-press-only or disabled anchor swallow the activation key belonging to its parent, and on web beat `Space`'s `PrioritizedIntents([ActivateIntent, ScrollIntent])` race so the page stopped scrolling. An early return inside the callback does not fix that: the action still reports enabled.
-- `Focus` is installed only when the anchor has a gesture or `trackFocus` is true. `WDiv` passes `trackFocus: className.contains('focus:')`, so a hover-only or active-only div has no node, is no Tab or D-pad stop, and publishes no `focusable` semantics. The provider and `MouseRegion` stay unconditional: every parse reads the provider, and hover needs the region. It also publishes no focus-within to its children: a `focus:` label beside a `WInput` under a hover-only row stays unlit, so give the row any `focus:` class when a sibling has to light.
-- `canRequestFocus: !isDisabled && (hasGestures || no ancestor anchor state)`. A gestureless `WAnchor` under another anchor is a styling wrapper, not a traversal stop, so one control costs one press of the remote. Standalone (nothing to inherit from) it keeps its node, because that is how a consumer styles a custom control.
-- A gestureless wrapper inherits the ancestor's `hasPrimaryFocus` and `isDisabled`, not its `isFocused`, and it republishes `hasPrimaryFocus` with the inherited value ORed in so the signal chains: a wrapper's own node never holds primary focus, so stopping at it left a ring two wrappers deep dark, and any `hover:` / `active:` class on an intermediate div creates that second wrapper. `WindAnchorState.isFocused` is focus-within (it comes from `FocusNode.hasFocus`, true for an ancestor of the real holder), so inheriting it lit the ring on every wrapper under a tappable card while the user typed in a field inside that card, including wrappers sitting beside the field. The container case still works without inheritance: a ring-styled `WDiv` wrapping a `WInput` lights through its own node. `isHovering` is never inherited: hover is a pointer position and sibling divs inside one anchor highlight independently.
+- `Focus` is installed only when the anchor has a gesture, `trackFocus` is true, or a `focusNode` or `autofocus` is given (a given node is the caller's: the anchor listens to it and never disposes it, and `focus:` classes follow it). `WDiv` passes `trackFocus: className.contains('focus:')`, so a hover-only or active-only div has no node, is no Tab or D-pad stop, and publishes no `focusable` semantics. The provider and `MouseRegion` stay unconditional: every parse reads the provider, and hover needs the region. It also publishes no focus-within to its children: a `focus:` label beside a `WInput` under a hover-only row stays unlit, so give the row any `focus:` class when a sibling has to light.
+- `canRequestFocus: !isDisabled && (hasGestures || no ancestor anchor state || focusNode or autofocus given)`. A gestureless `WAnchor` under another anchor, with no `focusNode` and no `autofocus`, is a styling wrapper, not a traversal stop, so one control costs one press of the remote; given either, it requests focus like any control. Standalone (nothing to inherit from) it keeps its node, because that is how a consumer styles a custom control.
+- A gestureless wrapper inherits the ancestor's `hasPrimaryFocus` and `isDisabled`, not its `isFocused`, and it republishes `hasPrimaryFocus` with the inherited value ORed in so the signal chains: a wrapper's own node holds primary focus only when the caller requests it through a `focusNode` or `autofocus`, so stopping at it left a ring two wrappers deep dark, and any `hover:` / `active:` class on an intermediate div creates that second wrapper. `WindAnchorState.isFocused` is focus-within (it comes from `FocusNode.hasFocus`, true for an ancestor of the real holder), so inheriting it lit the ring on every wrapper under a tappable card while the user typed in a field inside that card, including wrappers sitting beside the field. The container case still works without inheritance: a ring-styled `WDiv` wrapping a `WInput` lights through its own node. `isHovering` is never inherited: hover is a pointer position and sibling divs inside one anchor highlight independently.
 
 ### `WButton`
 
@@ -291,11 +293,15 @@ const WButton({
   Color? loadingColor,               // explicit override; otherwise contrast-detected
   Set<String>? states,
   String? semanticLabel,             // accessible name for icon-only buttons (no child text for Semantics to absorb)
+  FocusNode? focusNode,              // caller-owned, never disposed by the button; forwarded to WAnchor
+  bool autofocus = false,            // takes focus on mount only when nothing in scope is focused; forwarded to WAnchor
 })
 ```
 
 Loading state mechanics:
-- `isLoading: true` replaces the child with a default 16×16 `CircularProgressIndicator` (2 px stroke) plus optional `loadingText` in a flex row.
+- `isLoading: true` paints a default 16×16 `CircularProgressIndicator` (2 px stroke) plus an optional non-blank `loadingText` in a flex row instead of the child. A `loadingWidget` replaces both: the default spinner and `loadingText` are not rendered.
+- A loading button keeps its accessible name: `semanticLabel`, else the rendered `loadingText` (non-blank, with no `loadingWidget`), else the child's own text. In the last case the child stays mounted but unpainted (`Opacity(0, alwaysIncludeSemantics: true)` in a `Stack` beside the spinner, under `ExcludeFocus` so nothing in it takes keyboard focus), so the layout is unchanged and `find.text` still matches it. Text inside a `loadingWidget` joins the child's text in that name ("Working" and "Save" both read), so pass a `semanticLabel` when the two would read badly together. It stays a button node with `enabled: false`.
+- A disabled or loading button cannot take focus, so a keyboard user holding focus on it when loading starts loses it.
 - All taps are absorbed via `AbsorbPointer` when loading.
 - Spinner colour resolution chain: explicit `loadingColor` → `styles.color` (from `text-*`, skipped when fully transparent, because `text-transparent` hides the label, not the spinner) → contrast colour (W3C relative-luminance against background) → white fallback.
 

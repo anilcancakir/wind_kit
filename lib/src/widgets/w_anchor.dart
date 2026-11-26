@@ -15,7 +15,9 @@ import '../utils/wind_perf_counters.dart';
 ///
 /// ### Supported Features:
 /// - **Hover Detection:** Activates `hover:` class prefix
-/// - **Focus Management:** Activates `focus:` class prefix
+/// - **Focus Management:** Activates `focus:` class prefix; pass `focusNode`
+///   to drive focus from outside (the caller owns and disposes it) and
+///   `autofocus` to take focus when nothing in scope has it
 /// - **Gestures:** `onTap`, `onLongPress`, `onDoubleTap`
 /// - **Disabling:** `isDisabled` prop prevents all interactions
 ///
@@ -104,6 +106,28 @@ class WAnchor extends StatefulWidget {
   /// and remote target, so it always keeps its node.
   final bool trackFocus;
 
+  /// A node the caller owns, to request, move or read focus from outside.
+  ///
+  /// The anchor attaches to it and never disposes it: the caller creates it
+  /// and disposes it. When null the anchor creates a node of its own and
+  /// disposes that one with itself. Swapping the node on a rebuild moves the
+  /// anchor's listener to the new one and never disposes the old node.
+  ///
+  /// While the node is attached, the anchor's [Focus] drives its
+  /// `canRequestFocus`, which is false whenever the anchor is disabled, and
+  /// that value stays on the node after the anchor lets go of it.
+  ///
+  /// Giving a node installs a `Focus` even on a gestureless anchor with
+  /// `trackFocus` off, because a caller that holds a node means to focus it.
+  final FocusNode? focusNode;
+
+  /// Whether the anchor takes focus when it first builds.
+  ///
+  /// Applies only when nothing in the current focus scope is focused, as with
+  /// [Focus.autofocus]. A disabled anchor cannot take focus, so it ignores this,
+  /// and it does not ask again once enabled: the request belongs to the mount.
+  final bool autofocus;
+
   /// Creates a `WAnchor` widget.
   ///
   /// The [child] argument is required and represents the interactive area.
@@ -119,6 +143,8 @@ class WAnchor extends StatefulWidget {
     this.mouseCursor,
     this.semanticLabel,
     this.trackFocus = true,
+    this.focusNode,
+    this.autofocus = false,
   });
 
   @override
@@ -133,7 +159,24 @@ class _WAnchorState extends State<WAnchor> {
   bool _isHovering = false;
   bool _isFocused = false;
   bool _hasPrimaryFocus = false;
-  final FocusNode _focusNode = FocusNode();
+
+  /// The node this state created, which is the only one it may dispose.
+  ///
+  /// Non-null only while [WAnchor.focusNode] is null; a node the caller passes
+  /// in never lands here.
+  FocusNode? _ownedNode;
+
+  /// The node that drives the flags: the caller's, else the owned one, created
+  /// on first use.
+  FocusNode get _focusNode => widget.focusNode ?? (_ownedNode ??= FocusNode());
+
+  /// Whether [WAnchor.autofocus] still reaches the [Focus] this state builds.
+  ///
+  /// [Focus] files its autofocus request once per `Focus` state, but enabling
+  /// the anchor inserts `Actions` above it and so mounts a new one, which
+  /// asked again. Spent on the first parent rebuild, so the request belongs to
+  /// the mount, as the `autofocus` contract says.
+  bool _autofocusPending = true;
 
   /// The keyboard and remote-control half of [WAnchor.onTap].
   ///
@@ -171,13 +214,18 @@ class _WAnchorState extends State<WAnchor> {
   }
 
   /// Initializes the state and adds a listener to the `FocusNode` to track focus changes.
+  ///
+  /// The flags are read from the node rather than assumed false, because a
+  /// caller's node may already hold focus and must style the first frame.
   @override
   void initState() {
     super.initState();
     _focusNode.addListener(_onFocusChange);
+    _readFocusFlags();
   }
 
-  /// Drops every interaction flag the moment the widget turns disabled.
+  /// Drops every interaction flag the moment the widget turns disabled, and
+  /// follows a change of [WAnchor.focusNode].
   ///
   /// Focus has to be cleared here, not left to the listener. Turning disabled
   /// sets `canRequestFocus` to false, which makes `FocusNode` unfocus itself,
@@ -188,6 +236,10 @@ class _WAnchorState extends State<WAnchor> {
   @override
   void didUpdateWidget(covariant WAnchor oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _autofocusPending = false;
+    if (widget.focusNode != oldWidget.focusNode) {
+      _swapFocusNode(oldWidget.focusNode);
+    }
     if (widget.isDisabled && !oldWidget.isDisabled) {
       _isHovering = false;
       _isFocused = false;
@@ -195,12 +247,43 @@ class _WAnchorState extends State<WAnchor> {
     }
   }
 
-  /// Cleans up the `FocusNode` and its listener to prevent memory leaks.
+  /// Cleans up the owned `FocusNode` and the listener to prevent memory leaks.
+  ///
+  /// A node the caller passed in only loses the listener.
   @override
   void dispose() {
     _focusNode.removeListener(_onFocusChange);
-    _focusNode.dispose();
+    _ownedNode?.dispose();
     super.dispose();
+  }
+
+  /// Copies the focus flags off the effective node.
+  ///
+  /// No `setState`: callers run inside `initState` or `didUpdateWidget`, and a
+  /// build follows. A disabled anchor reports no focus, as [_onFocusChange] does.
+  void _readFocusFlags() {
+    _isFocused = !widget.isDisabled && _focusNode.hasFocus;
+    _hasPrimaryFocus = !widget.isDisabled && _focusNode.hasPrimaryFocus;
+  }
+
+  /// Moves the listener from the previous node to the current one.
+  ///
+  /// [previous] is the old widget's node, and null means the owned node was
+  /// in use. That one is disposed only when a caller's node replaces it, and a
+  /// new owned node is created lazily when the caller's node goes away.
+  void _swapFocusNode(FocusNode? previous) {
+    // 1. Detach from whichever node was driving the flags.
+    (previous ?? _ownedNode)?.removeListener(_onFocusChange);
+
+    // 2. A caller's node replaces the owned one, which has no more use.
+    if (widget.focusNode != null) {
+      _ownedNode?.dispose();
+      _ownedNode = null;
+    }
+
+    // 3. Attach to the new node and take its flags rather than the old node's.
+    _focusNode.addListener(_onFocusChange);
+    _readFocusFlags();
   }
 
   /// Called when the focus state of the `FocusNode` changes.
@@ -314,13 +397,20 @@ class _WAnchorState extends State<WAnchor> {
     // rows that could never draw focus. Chained primary focus still passes
     // through such a wrapper, because that travels in the provider below,
     // not in the node.
+    //
+    // A node or `autofocus` from the caller is a request to be focusable, so
+    // either one installs the node and lets it take focus even when gestureless
+    // and inheriting.
     Widget innerChild = widget.child;
-    if (hasGestures || widget.trackFocus) {
+    final bool focusRequested = widget.focusNode != null || widget.autofocus;
+    if (hasGestures || widget.trackFocus || focusRequested) {
       WindPerfCounters.recordWrapperEmission('Focus');
       innerChild = Focus(
         focusNode: _focusNode,
+        autofocus: widget.autofocus && _autofocusPending,
         canRequestFocus:
-            !widget.isDisabled && (hasGestures || inherited == null),
+            !widget.isDisabled &&
+            (hasGestures || inherited == null || focusRequested),
         child: innerChild,
       );
     }

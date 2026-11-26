@@ -24,7 +24,7 @@ Customising `WindThemeData`, brightness control, breakpoint scale, platform pref
 ```yaml
 # pubspec.yaml
 dependencies:
-  wind_kit: ^1.13.0
+  wind_kit: ^1.13.1
   material_ui: ^1.11.0
 ```
 

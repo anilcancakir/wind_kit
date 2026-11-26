@@ -109,7 +109,7 @@ WDiv(
 - Breakpoint and `dark:` prefixes work: `md:col-span-2` is one column below the `md` breakpoint and two above it. A state prefix is read from the child's own `states` and from the anchor the grid sits in, so `disabled:col-span-2` spans two columns under a disabled `WAnchor`. A child's own `hover:` or `focus:` state is not seen by the grid, so a span behind `hover:` or `focus:` is not supported.
 - Rows pack in order and sparsely: a child that does not fit the columns left in the row starts the next row, and later children never backfill the gap.
 - Both the default `Wrap` grid and the `items-stretch` grid honour spans; with `items-stretch` each row still shares one height.
-- Only a child that carries a `className` can span, which means a Wind widget such as `WDiv`, `WText` or `WButton`. A plain Flutter widget such as `Text` or `SizedBox` keeps one column; wrap it in a `WDiv` to span it.
+- The grid reads the span from its direct child, so only a direct child that carries a `className` can span: a Wind widget such as `WDiv`, `WText` or `WButton`. A plain Flutter widget such as `Text` or `SizedBox`, and a `WAnchor` (which takes no `className`), keep one column even when a descendant carries `col-span-*`; wrap such a child in a `WDiv` to span it.
 - A grid narrower than its gaps has no column width, so on both paths every cell collapses to zero width, except a `col-span-full` (or a span of every column) cell, which still fills the row.
 - With `overflow-x-auto` or `overflow-x-scroll` the grid is a single `Row` and spans are ignored.
 - `row-span-*` is not supported.

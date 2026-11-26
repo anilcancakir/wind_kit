@@ -5,6 +5,7 @@ Utilities for specifying the columns in a grid layout.
 - [Basic Usage](#basic-usage)
 - [Quick Reference](#quick-reference)
 - [Equal-Height Rows](#equal-height-rows)
+- [Column Span](#column-span)
 - [Responsive](#responsive)
 - [Dark Mode](#dark-mode)
 - [Arbitrary Values](#arbitrary-values)
@@ -82,6 +83,36 @@ WDiv(
 ```
 
 The equal-height rows are laid out for real (each cell is measured with a loose height, then re-laid to at least the row's tallest via a **min** height, never a tight squeeze), NOT via `IntrinsicHeight`, so cells whose content is itself a `flex flex-col`, or that use `h-full` / `basis-*` (neither of which carries a `LayoutBuilder` any more), stretch correctly instead of asserting `LayoutBuilder does not support returning intrinsic dimensions`. Because a cell is never forced below its own content height, a stretched cell also produces no residual `RenderFlex overflowed` warning (#141).
+
+<a name="column-span"></a>
+## Column Span
+
+Add `col-span-{n}` to a grid child to make it `n` columns wide, or `col-span-full` to make it take the whole row. A span is `n` columns plus the `n - 1` gaps between them: in a `grid-cols-4 gap-4` grid that is 400 wide, a column is 88 and `col-span-2` is 192.
+
+<x-preview path="layout/grid_cols" size="md" source="example/lib/pages/layout/grid_cols.dart"></x-preview>
+
+```dart
+WDiv(
+  className: 'grid grid-cols-4 gap-4',
+  children: [
+    WDiv(className: 'col-span-2 bg-blue-500 dark:bg-blue-600 h-12'),
+    WDiv(className: 'bg-blue-500 dark:bg-blue-600 h-12'),
+    WDiv(className: 'bg-blue-500 dark:bg-blue-600 h-12'),
+    WDiv(className: 'col-span-full bg-blue-500 dark:bg-blue-600 h-12'),
+  ],
+)
+```
+
+- A span larger than the column count caps at the column count, and `col-span-0` counts as one column.
+- A child's own `style: WindStyle(gridColSpan: 2)` spans two columns, and a literal `col-span-*` class overrides it, as it does every other style field.
+- A theme alias that expands to a span works too: with `aliases: {'wide-tile': 'col-span-2'}`, `className: 'wide-tile'` spans two columns.
+- Breakpoint and `dark:` prefixes work: `md:col-span-2` is one column below the `md` breakpoint and two above it. A state prefix is read from the child's own `states` and from the anchor the grid sits in, so `disabled:col-span-2` spans two columns under a disabled `WAnchor`. A child's own `hover:` or `focus:` state is not seen by the grid, so a span behind `hover:` or `focus:` is not supported.
+- Rows pack in order and sparsely: a child that does not fit the columns left in the row starts the next row, and later children never backfill the gap.
+- Both the default `Wrap` grid and the `items-stretch` grid honour spans; with `items-stretch` each row still shares one height.
+- The grid reads the span from its direct child, so only a direct child that carries a `className` can span: a Wind widget such as `WDiv`, `WText` or `WButton`. A plain Flutter widget such as `Text` or `SizedBox`, and a `WAnchor` (which takes no `className`), keep one column even when a descendant carries `col-span-*`; wrap such a child in a `WDiv` to span it.
+- A grid narrower than its gaps has no column width, so on both paths every cell collapses to zero width, except a `col-span-full` (or a span of every column) cell, which still fills the row.
+- With `overflow-x-auto` or `overflow-x-scroll` the grid is a single `Row` and spans are ignored.
+- `row-span-*` is not supported.
 
 <a name="responsive"></a>
 ## Responsive

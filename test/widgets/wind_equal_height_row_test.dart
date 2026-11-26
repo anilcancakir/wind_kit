@@ -123,6 +123,181 @@ void main() {
       expect(tapped, isTrue);
     });
 
+    group('columns and spans', () {
+      const aKey = Key('a');
+      const bKey = Key('b');
+
+      testWidgets('weights cell widths by span across the columns (#328)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            const WindEqualHeightRow(
+              spacing: 16,
+              columns: 4,
+              spans: [2, 1],
+              children: [
+                SizedBox(key: aKey, height: 10),
+                SizedBox(key: bKey, height: 10),
+              ],
+            ),
+            width: 400,
+          ),
+        );
+
+        // unit = (400 - 16 * 3) / 4 = 88; span 2 = 2 * 88 + 16 = 192.
+        expect(tester.getSize(find.byKey(aKey)).width, 192);
+        expect(tester.getSize(find.byKey(bKey)).width, 88);
+        expect(tester.getTopLeft(find.byKey(aKey)).dx, 0);
+        expect(tester.getTopLeft(find.byKey(bKey)).dx, 208);
+      });
+
+      testWidgets('lets a full-width span take the whole row (#328)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            const WindEqualHeightRow(
+              spacing: 16,
+              columns: 4,
+              spans: [4],
+              children: [SizedBox(key: aKey, height: 10)],
+            ),
+            width: 400,
+          ),
+        );
+
+        expect(tester.getSize(find.byKey(aKey)).width, 400);
+      });
+
+      testWidgets(
+        'fills the row with a full span when the gaps leave no room (#328)',
+        (tester) async {
+          await tester.pumpWidget(
+            wrapWithTheme(
+              const WindEqualHeightRow(
+                spacing: 16,
+                columns: 12,
+                spans: [12],
+                children: [SizedBox(key: aKey, height: 10)],
+              ),
+              width: 150,
+            ),
+          );
+
+          // 11 gaps of 16 are wider than the row, so no column has any width, but
+          // a span of every column is the row itself and no wider.
+          expect(tester.getSize(find.byKey(aKey)).width, 150);
+        },
+      );
+
+      testWidgets('leaves the trailing columns empty on a short row (#328)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            const WindEqualHeightRow(
+              spacing: 16,
+              columns: 4,
+              children: [
+                SizedBox(key: aKey, height: 10),
+                SizedBox(key: bKey, height: 10),
+              ],
+            ),
+            width: 400,
+          ),
+        );
+
+        expect(tester.getSize(find.byKey(aKey)).width, 88);
+        expect(tester.getSize(find.byKey(bKey)).width, 88);
+        expect(tester.getTopLeft(find.byKey(bKey)).dx, 104);
+        expect(tester.getSize(find.byType(WindEqualHeightRow)).width, 400);
+      });
+
+      testWidgets('keeps every cell at the tallest height with spans (#328)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            const WindEqualHeightRow(
+              spacing: 16,
+              columns: 4,
+              spans: [3, 1],
+              children: [
+                SizedBox(key: aKey, height: 30),
+                SizedBox(key: bKey, height: 90),
+              ],
+            ),
+            width: 400,
+          ),
+        );
+
+        expect(tester.getSize(find.byKey(aKey)).height, 90);
+        expect(tester.getSize(find.byKey(bKey)).height, 90);
+      });
+
+      testWidgets('derives the column count from the spans alone (#328)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            const WindEqualHeightRow(
+              spacing: 20,
+              spans: [2, 1],
+              children: [
+                SizedBox(key: aKey, height: 10),
+                SizedBox(key: bKey, height: 10),
+              ],
+            ),
+            width: 400,
+          ),
+        );
+
+        // columns = 3, unit = (400 - 40) / 3 = 120; span 2 = 260.
+        expect(tester.getSize(find.byKey(aKey)).width, 260);
+        expect(tester.getSize(find.byKey(bKey)).width, 120);
+      });
+
+      testWidgets('keeps the equal split when columns and spans are omitted '
+          '(#328)', (tester) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            const WindEqualHeightRow(
+              spacing: 20,
+              children: [
+                SizedBox(key: aKey, height: 10),
+                SizedBox(key: bKey, height: 10),
+              ],
+            ),
+          ),
+        );
+
+        expect(tester.getSize(find.byKey(aKey)).width, 290);
+        expect(tester.getTopLeft(find.byKey(bKey)).dx, 310);
+      });
+
+      testWidgets('relays out when spans change (#328)', (tester) async {
+        Widget build(List<int> spans) => wrapWithTheme(
+          WindEqualHeightRow(
+            spacing: 16,
+            columns: 4,
+            spans: spans,
+            children: const [
+              SizedBox(key: aKey, height: 10),
+              SizedBox(key: bKey, height: 10),
+            ],
+          ),
+          width: 400,
+        );
+
+        await tester.pumpWidget(build(const [1, 1]));
+        expect(tester.getSize(find.byKey(aKey)).width, 88);
+
+        await tester.pumpWidget(build(const [3, 1]));
+        expect(tester.getSize(find.byKey(aKey)).width, 296);
+      });
+    });
+
     testWidgets('degrades safely under an unbounded width', (tester) async {
       // In an unbounded-width context there is no share to divide; the row must
       // not throw and simply sizes to its (zero-width) children.

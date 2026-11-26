@@ -43,6 +43,75 @@ class GridColsExamplePage extends StatelessWidget {
           ),
         ),
         ExampleSection(
+          title: 'Column Span',
+          description:
+              'col-span-{n} makes a child n columns wide plus the gaps between them, capped at the column count. '
+              'col-span-full takes the whole row, and a prefix such as md:col-span-2 applies from that breakpoint up.',
+          child: WDiv(
+            className: 'grid grid-cols-4 gap-3',
+            children: [
+              WDiv(
+                className: '''
+                  h-16 rounded-lg flex items-center justify-center
+                  col-span-2 bg-green-500
+                ''',
+                child: WText(
+                  'col-span-2',
+                  className: 'text-white font-bold font-mono text-sm',
+                ),
+              ),
+              WDiv(
+                className: '''
+                  h-16 rounded-lg flex items-center justify-center
+                  bg-emerald-500
+                ''',
+                child: WText('1', className: 'text-white font-bold'),
+              ),
+              WDiv(
+                className: '''
+                  h-16 rounded-lg flex items-center justify-center
+                  bg-emerald-500
+                ''',
+                child: WText('2', className: 'text-white font-bold'),
+              ),
+              WDiv(
+                className: '''
+                  h-12 rounded-lg flex items-center justify-center
+                  col-span-full bg-teal-600
+                ''',
+                child: WText(
+                  'col-span-full',
+                  className: 'text-white font-bold font-mono text-sm',
+                ),
+              ),
+              WDiv(
+                className: '''
+                  h-16 rounded-lg flex items-center justify-center
+                  bg-emerald-500
+                ''',
+                child: WText('3', className: 'text-white font-bold'),
+              ),
+              WDiv(
+                className: '''
+                  h-16 rounded-lg flex items-center justify-center
+                  md:col-span-2 bg-cyan-600
+                ''',
+                child: WText(
+                  'md:col-span-2',
+                  className: 'text-white font-bold font-mono text-sm',
+                ),
+              ),
+              WDiv(
+                className: '''
+                  h-16 rounded-lg flex items-center justify-center
+                  bg-emerald-500
+                ''',
+                child: WText('4', className: 'text-white font-bold'),
+              ),
+            ],
+          ),
+        ),
+        ExampleSection(
           title: 'Quick Reference',
           description: 'Default scale covers 1 to 12 columns. Any other integer also resolves correctly.',
           child: WDiv(

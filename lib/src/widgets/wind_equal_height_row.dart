@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
@@ -20,33 +21,54 @@ import 'package:flutter/widgets.dart';
 /// `RenderFlex overflowed` warning the way a tight re-lay could on fractional
 /// (sub-pixel) content (issue #141).
 ///
-/// Every child is given an equal share of the incoming width (`(maxWidth -
-/// spacing * (n - 1)) / n`), matching the grid's fixed column count, so callers
-/// pass one child per column (padding a short final row with blank children
-/// keeps the columns aligned). [spacing] is the horizontal gap between columns.
+/// The incoming width is split into [columns] equal columns, each
+/// `(maxWidth - spacing * (columns - 1)) / columns` wide, and each child spans
+/// [spans] of them, so its width is `span * unit + (span - 1) * spacing` and the next child
+/// starts one [spacing] after it. With neither given, [columns] is the child
+/// count and every span is 1: an equal share per child. A row shorter than
+/// [columns] keeps its columns aligned by leaving the right-hand ones empty, so
+/// no blank padding children are needed. [spacing] is the horizontal gap
+/// between columns.
 class WindEqualHeightRow extends MultiChildRenderObjectWidget {
   /// Horizontal gap inserted between each column.
   final double spacing;
 
+  /// Number of equal columns the width is divided into. Defaults to the sum of
+  /// [spans] when only spans are given, otherwise to the child count.
+  final int? columns;
+
+  /// Columns each child occupies, one positive entry per child. Defaults to 1
+  /// for every child.
+  final List<int>? spans;
+
   const WindEqualHeightRow({
     super.key,
     this.spacing = 0,
+    this.columns,
+    this.spans,
     required super.children,
   }) : assert(
          spacing >= 0 && spacing < double.infinity,
          'WindEqualHeightRow.spacing must be finite and non-negative.',
+       ),
+       assert(
+         columns == null || columns > 0,
+         'WindEqualHeightRow.columns must be positive.',
        );
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderEqualHeightRow(spacing: spacing);
+      _RenderEqualHeightRow(spacing: spacing, columns: columns, spans: spans);
 
   @override
   void updateRenderObject(
     BuildContext context,
     covariant RenderObject renderObject,
   ) {
-    (renderObject as _RenderEqualHeightRow).spacing = spacing;
+    (renderObject as _RenderEqualHeightRow)
+      ..spacing = spacing
+      ..columns = columns
+      ..spans = spans;
   }
 }
 
@@ -56,7 +78,11 @@ class _RenderEqualHeightRow extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _EqualHeightParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _EqualHeightParentData> {
-  _RenderEqualHeightRow({required this._spacing});
+  _RenderEqualHeightRow({
+    required this._spacing,
+    required this._columns,
+    required this._spans,
+  });
 
   double _spacing;
   set spacing(double value) {
@@ -67,6 +93,38 @@ class _RenderEqualHeightRow extends RenderBox
     if (value == _spacing) return;
     _spacing = value;
     markNeedsLayout();
+  }
+
+  int? _columns;
+  set columns(int? value) {
+    assert(
+      value == null || value > 0,
+      'WindEqualHeightRow.columns must be positive.',
+    );
+    if (value == _columns) return;
+    _columns = value;
+    markNeedsLayout();
+  }
+
+  List<int>? _spans;
+  set spans(List<int>? value) {
+    if (listEquals(value, _spans)) return;
+    _spans = value;
+    markNeedsLayout();
+  }
+
+  /// The width of the child at [index] spanning its columns, given the width of
+  /// one column and the [columns] in the row. A span of every column is the
+  /// whole row, even when the row is narrower than its gaps. Otherwise a row
+  /// too narrow for its gaps has no column width at all, so a span must not
+  /// grow past it on the strength of the gaps inside it.
+  double _cellWidth(int index, double unit, int columns) {
+    final int span = _spans?[index] ?? 1;
+    if (span >= columns && constraints.maxWidth.isFinite) {
+      return constraints.maxWidth;
+    }
+    if (unit == 0) return 0;
+    return span * unit + (span - 1) * _spacing;
   }
 
   @override
@@ -84,19 +142,34 @@ class _RenderEqualHeightRow extends RenderBox
       return;
     }
 
-    final double totalSpacing = _spacing * (count - 1);
+    final List<int>? spans = _spans;
+    assert(
+      spans == null ||
+          (spans.length == count &&
+              spans.every((int span) => span > 0) &&
+              (_columns == null ||
+                  spans.fold(0, (a, b) => a + b) <= _columns!)),
+      'WindEqualHeightRow.spans needs one positive entry per child, '
+      'totalling at most columns.',
+    );
+    final int columns =
+        _columns ?? (spans == null ? count : spans.fold(0, (a, b) => a + b));
+
+    final double totalSpacing = _spacing * (columns - 1);
     // A grid always lives in a bounded-width parent; fall back to 0 (degenerate,
     // never in practice) rather than an infinite width if it does not.
     final double raw =
         (constraints.maxWidth.isFinite ? constraints.maxWidth : 0.0) -
         totalSpacing;
-    final double cellWidth = raw > 0 ? raw / count : 0.0;
+    final double unit = raw > 0 ? raw / columns : 0.0;
 
     // Pass 1: lay each cell out at its natural height (loose height) to find the
     // tallest. This is a real layout, so LayoutBuilder-bearing cells are fine.
     double maxHeight = 0;
+    int index = 0;
     RenderBox? child = firstChild;
     while (child != null) {
+      final double cellWidth = _cellWidth(index++, unit, columns);
       child.layout(
         BoxConstraints(
           minWidth: cellWidth,
@@ -125,8 +198,10 @@ class _RenderEqualHeightRow extends RenderBox
     // lets such a cell keep its own (larger) height, so `rowHeight` ends up >=
     // every cell's content and no cell is ever squeezed.
     double rowHeight = target;
+    index = 0;
     child = firstChild;
     while (child != null) {
+      final double cellWidth = _cellWidth(index++, unit, columns);
       child.layout(
         BoxConstraints(
           minWidth: cellWidth,
@@ -145,8 +220,10 @@ class _RenderEqualHeightRow extends RenderBox
     // no squeeze) and position it. This equalizes any cell that measured shorter
     // than a sibling which grew in pass 2, so all cells share the row height.
     double dx = 0;
+    index = 0;
     child = firstChild;
     while (child != null) {
+      final double cellWidth = _cellWidth(index++, unit, columns);
       child.layout(
         BoxConstraints(
           minWidth: cellWidth,

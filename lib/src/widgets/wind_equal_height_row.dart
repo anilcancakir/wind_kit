@@ -114,11 +114,16 @@ class _RenderEqualHeightRow extends RenderBox
   }
 
   /// The width of the child at [index] spanning its columns, given the width of
-  /// one column. A row too narrow for its gaps has no column width at all, so
-  /// a span must not grow past it on the strength of the gaps inside it.
-  double _cellWidth(int index, double unit) {
-    if (unit == 0) return 0;
+  /// one column and the [columns] in the row. A span of every column is the
+  /// whole row, even when the row is narrower than its gaps. Otherwise a row
+  /// too narrow for its gaps has no column width at all, so a span must not
+  /// grow past it on the strength of the gaps inside it.
+  double _cellWidth(int index, double unit, int columns) {
     final int span = _spans?[index] ?? 1;
+    if (span >= columns && constraints.maxWidth.isFinite) {
+      return constraints.maxWidth;
+    }
+    if (unit == 0) return 0;
     return span * unit + (span - 1) * _spacing;
   }
 
@@ -164,7 +169,7 @@ class _RenderEqualHeightRow extends RenderBox
     int index = 0;
     RenderBox? child = firstChild;
     while (child != null) {
-      final double cellWidth = _cellWidth(index++, unit);
+      final double cellWidth = _cellWidth(index++, unit, columns);
       child.layout(
         BoxConstraints(
           minWidth: cellWidth,
@@ -196,7 +201,7 @@ class _RenderEqualHeightRow extends RenderBox
     index = 0;
     child = firstChild;
     while (child != null) {
-      final double cellWidth = _cellWidth(index++, unit);
+      final double cellWidth = _cellWidth(index++, unit, columns);
       child.layout(
         BoxConstraints(
           minWidth: cellWidth,
@@ -218,7 +223,7 @@ class _RenderEqualHeightRow extends RenderBox
     index = 0;
     child = firstChild;
     while (child != null) {
-      final double cellWidth = _cellWidth(index++, unit);
+      final double cellWidth = _cellWidth(index++, unit, columns);
       child.layout(
         BoxConstraints(
           minWidth: cellWidth,

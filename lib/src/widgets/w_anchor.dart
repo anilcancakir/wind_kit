@@ -124,7 +124,8 @@ class WAnchor extends StatefulWidget {
   /// Whether the anchor takes focus when it first builds.
   ///
   /// Applies only when nothing in the current focus scope is focused, as with
-  /// [Focus.autofocus]. A disabled anchor cannot take focus, so it ignores this.
+  /// [Focus.autofocus]. A disabled anchor cannot take focus, so it ignores this,
+  /// and it does not ask again once enabled: the request belongs to the mount.
   final bool autofocus;
 
   /// Creates a `WAnchor` widget.
@@ -168,6 +169,14 @@ class _WAnchorState extends State<WAnchor> {
   /// The node that drives the flags: the caller's, else the owned one, created
   /// on first use.
   FocusNode get _focusNode => widget.focusNode ?? (_ownedNode ??= FocusNode());
+
+  /// Whether [WAnchor.autofocus] still reaches the [Focus] this state builds.
+  ///
+  /// [Focus] files its autofocus request once per `Focus` state, but enabling
+  /// the anchor inserts `Actions` above it and so mounts a new one, which
+  /// asked again. Spent on the first parent rebuild, so the request belongs to
+  /// the mount, as the `autofocus` contract says.
+  bool _autofocusPending = true;
 
   /// The keyboard and remote-control half of [WAnchor.onTap].
   ///
@@ -227,6 +236,7 @@ class _WAnchorState extends State<WAnchor> {
   @override
   void didUpdateWidget(covariant WAnchor oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _autofocusPending = false;
     if (widget.focusNode != oldWidget.focusNode) {
       _swapFocusNode(oldWidget.focusNode);
     }
@@ -397,7 +407,7 @@ class _WAnchorState extends State<WAnchor> {
       WindPerfCounters.recordWrapperEmission('Focus');
       innerChild = Focus(
         focusNode: _focusNode,
-        autofocus: widget.autofocus,
+        autofocus: widget.autofocus && _autofocusPending,
         canRequestFocus:
             !widget.isDisabled &&
             (hasGestures || inherited == null || focusRequested),

@@ -21,15 +21,24 @@ class WTooltipBasicExamplePage extends StatelessWidget {
             children: const [
               WTooltip(
                 message: 'Save changes',
-                child: _IconAction(icon: Icons.save, label: 'Save changes'),
+                child: _IconAction(
+                  icon: Icons.save_outlined,
+                  label: 'Save changes',
+                ),
               ),
               WTooltip(
                 message: 'Copy link',
-                child: _IconAction(icon: Icons.link, label: 'Copy link'),
+                child: _IconAction(
+                  icon: Icons.link_outlined,
+                  label: 'Copy link',
+                ),
               ),
               WTooltip(
                 message: 'Delete item',
-                child: _IconAction(icon: Icons.delete, label: 'Delete item'),
+                child: _IconAction(
+                  icon: Icons.delete_outlined,
+                  label: 'Delete item',
+                ),
               ),
             ],
           ),
@@ -66,7 +75,7 @@ class WTooltipBasicExamplePage extends StatelessWidget {
                   border border-purple-700 dark:border-purple-300
                 ''',
                 child: _IconAction(
-                  icon: Icons.share,
+                  icon: Icons.share_outlined,
                   label: 'Share with John Doe',
                 ),
               ),
@@ -88,7 +97,7 @@ class _AlignedTooltip extends StatelessWidget {
     return WTooltip(
       message: alignment.name,
       alignment: alignment,
-      child: _IconAction(icon: Icons.info, label: alignment.name),
+      child: _IconAction(icon: Icons.info_outlined, label: alignment.name),
     );
   }
 }

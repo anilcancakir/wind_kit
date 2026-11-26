@@ -1,10 +1,12 @@
 import 'package:flutter/widgets.dart';
 
+import '../parser/alias_expander.dart';
 import '../parser/wind_parser.dart';
 import '../parser/wind_style.dart';
 import '../state/wind_anchor_state_provider.dart';
 import '../state/wind_flex_overflow_scope.dart';
 import '../state/wind_min_width_scroll_scope.dart';
+import '../theme/wind_theme.dart';
 import '../utils/wind_helpers.dart';
 import '../utils/wind_logger.dart';
 import '../utils/wind_perf_counters.dart';
@@ -1153,6 +1155,18 @@ class WDiv extends StatelessWidget {
     }
   }
 
+  /// Extracts the explicit base [WindStyle] from any Wind widget via dynamic
+  /// access; a widget whose `style` is another type (a `TextStyle`) yields null.
+  static WindStyle? _extractChildStyle(Widget child) {
+    try {
+      final dynamic windChild = child;
+      final Object? style = windChild.style;
+      return style is WindStyle ? style : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Extracts `states` from any Wind widget via dynamic access.
   static Set<String>? _extractChildStates(Widget child) {
     try {
@@ -1356,15 +1370,13 @@ class WDiv extends StatelessWidget {
           children: [
             for (var i = 0; i < children!.length; i++)
               SizedBox(
-                width: itemWidth > 0
-                    ? _spanWidth(
-                        spans?[i] ?? 1,
-                        cols,
-                        itemWidth,
-                        gapX,
-                        availableWidth,
-                      )
-                    : null,
+                width: _spanWidth(
+                  spans?[i] ?? 1,
+                  cols,
+                  itemWidth,
+                  gapX,
+                  availableWidth,
+                ),
                 child: children![i],
               ),
           ],
@@ -1376,19 +1388,38 @@ class WDiv extends StatelessWidget {
   /// Resolves each child's `col-span-*` for a grid of [cols] columns, clamped
   /// to 1..[cols] (`col-span-full` is [WindStyle.gridColSpanFull], so it caps
   /// at [cols]). Null when no child asks for a span, so a plain grid pays no
-  /// parse. Only a child whose className mentions `col-span-` is parsed, with
-  /// the build [context] so `md:col-span-2` resolves by breakpoint; a child
-  /// that exposes no className keeps one column.
+  /// parse. Only a child whose className mentions `col-span-`, once the theme
+  /// aliases are expanded, is parsed, with the build [context] so
+  /// `md:col-span-2` resolves by breakpoint and an ancestor anchor's
+  /// `hover`, `focus` and `disabled` flags apply, as they do to the child. The
+  /// child's explicit `style` is the base, so it can carry a span of its own
+  /// and a literal `col-span-*` class still overrides it, as in [build]; a
+  /// child that exposes neither keeps one column.
+  ///
+  /// The anchor's custom states are merged into the child's own, because
+  /// [WindContext.build] reads only the three flags. A child with `hover:` or
+  /// `focus:` classes wraps its own anchor, whose state the grid cannot see, so
+  /// a span that depends on it is not supported.
   List<int>? _resolveColSpans(int cols, BuildContext context) {
+    // A grid styled through an explicit `style` needs no theme, so a missing
+    // one means no aliases rather than an error.
+    final aliases = WindTheme.maybeDataOf(context)?.aliases ?? const {};
+    final Set<String>? inheritedStates = WindAnchorStateProvider.of(context)
+        ?.customStates;
     List<int>? spans;
     for (var i = 0; i < children!.length; i++) {
       final className = _extractChildClassName(children![i]);
-      if (className == null || !className.contains('col-span-')) continue;
-      final colSpan = WindParser.parse(
-        className,
-        context,
-        states: _extractChildStates(children![i]),
-      ).gridColSpan;
+      final baseStyle = _extractChildStyle(children![i]);
+      int? colSpan = baseStyle?.gridColSpan;
+      if (className != null &&
+          expandAliases(className, aliases).contains('col-span-')) {
+        colSpan = WindParser.parse(
+          className,
+          context,
+          baseStyle: baseStyle,
+          states: {...?_extractChildStates(children![i]), ...?inheritedStates},
+        ).gridColSpan;
+      }
       if (colSpan == null) continue;
       spans ??= List<int>.filled(children!.length, 1);
       spans[i] = colSpan.clamp(1, cols);
@@ -1398,7 +1429,11 @@ class WDiv extends StatelessWidget {
 
   /// Width of a cell spanning [span] of [cols] columns. A full-row span takes
   /// [availableWidth] exactly: rebuilding it from `cols * itemWidth + gaps`
-  /// could land a hair over and make the Wrap push the cell onto its own line.
+  /// could land a hair over and make the Wrap push the cell onto its own line,
+  /// and it stays the row when the gaps are wider than the row. A grid narrower
+  /// than its gaps has no column width ([itemWidth] is not positive), so every
+  /// other cell collapses to zero, as `WindEqualHeightRow` does, rather than
+  /// keeping its natural width.
   static double _spanWidth(
     int span,
     int cols,
@@ -1407,6 +1442,7 @@ class WDiv extends StatelessWidget {
     double availableWidth,
   ) {
     if (span >= cols) return availableWidth;
+    if (itemWidth <= 0) return 0;
     return span * itemWidth + (span - 1) * gapX;
   }
 
@@ -2163,6 +2199,25 @@ class WDiv extends StatelessWidget {
             insideVerticalScroll: scrollScope?.verticalUnbounded ?? false,
             child: innerChild,
           );
+
+          // `w-full` inside a horizontal scroll: the width is unbounded, which
+          // the box above cannot take a fraction of, so the viewport width is
+          // threaded in the way the width-only branch does it, but only when
+          // the parent leaves the width unbounded: a parent that gave one is
+          // filled as before. No port means no scroll, so nothing to add.
+          if (isFullWidth && scrollScope?.horizontalPort != null) {
+            logger.wrapWith("WindMinWidthBox", "w-full in horizontal scroll");
+            WindPerfCounters.recordWrapperEmission('WindMinWidthBox');
+            widgetToBuild = WindMinWidthBox(
+              port: scrollScope!.horizontalPort!,
+              floorMinWidth: styles.constraints?.minWidth ?? 0,
+              yieldToBoundedWidth: true,
+              maxWidth: hasMaxWidthConstraint
+                  ? styles.constraints!.maxWidth
+                  : null,
+              child: widgetToBuild,
+            );
+          }
         } else {
           // Both fractional, neither h-full: FractionallySizedBox handles it
           logger.wrapWith("FractionallySizedBox", "w+h fraction");

@@ -313,6 +313,20 @@ void main() {
         expect(updatedStyles.textDecorationColor, const Color(0xFF654321));
       });
 
+      test('applies an opacity suffix to a decoration color (#324)', () {
+        final styles = WindStyle();
+        final classes = ['decoration-red-500/50', 'decoration-[#336699]/[0.5]'];
+
+        expect(
+          parser.parse(styles, [classes[0]], context).textDecorationColor,
+          applyOpacity(context.theme.getColor('red', 500)!, 0.5),
+        );
+        expect(
+          parser.parse(styles, [classes[1]], context).textDecorationColor,
+          const Color(0x80336699),
+        );
+      });
+
       test('last class wins for conflicting decoration color classes', () {
         final styles = WindStyle();
         final classes = ['decoration-red-500', 'decoration-green-500'];

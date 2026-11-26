@@ -20,8 +20,8 @@ import 'w_text.dart';
 ///   label; `loadingColor` sets the spinner's colour and `loadingText` puts a
 ///   caption beside it. The child stays in the tree, unpainted and outside
 ///   the layout size, when nothing else names the button: the accessible
-///   name is `semanticLabel`, else the rendered `loadingText`, else the
-///   child's text.
+///   name is `semanticLabel`, else a rendered non-blank `loadingText`, else
+///   the child's text.
 /// - **Interactvity:** `onTap`, `onDoubleTap`, `onLongPress`
 /// - **Styling:** `bg-blue-500`, `text-white`, `rounded`, `shadow`
 ///
@@ -209,11 +209,13 @@ class WButton extends StatelessWidget {
           // A spinner carries no text, so a loading button named by neither
           // `semanticLabel` nor a rendered `loadingText` would be nameless.
           // The child stays mounted, unpainted and out of the layout size,
-          // purely so its text names the merged button node.
+          // purely so its text names the merged button node. `ExcludeFocus`
+          // keeps a focusable descendant of the unpainted child from being an
+          // invisible keyboard stop.
           final bool namedByChild =
               isLoading &&
               semanticLabel == null &&
-              (loadingText == null || loadingWidget != null);
+              (!_hasLoadingCaption || loadingWidget != null);
           if (namedByChild) {
             content = Stack(
               alignment: Alignment.center,
@@ -221,10 +223,12 @@ class WButton extends StatelessWidget {
               children: [
                 content,
                 Positioned.fill(
-                  child: Opacity(
-                    opacity: 0,
-                    alwaysIncludeSemantics: true,
-                    child: child,
+                  child: ExcludeFocus(
+                    child: Opacity(
+                      opacity: 0,
+                      alwaysIncludeSemantics: true,
+                      child: child,
+                    ),
                   ),
                 ),
               ],
@@ -337,6 +341,12 @@ class WButton extends StatelessWidget {
     );
   }
 
+  /// Whether [loadingText] has a readable caption to render.
+  ///
+  /// A blank one would be a gap beside the spinner that names nothing, so it
+  /// is not rendered and the child names the button instead.
+  bool get _hasLoadingCaption => loadingText?.trim().isNotEmpty ?? false;
+
   /// Builds the loading content with spinner and optional text.
   Widget _buildLoadingContent(WindStyle styles) {
     if (loadingWidget != null) {
@@ -369,7 +379,7 @@ class WButton extends StatelessWidget {
       ),
     );
 
-    if (loadingText != null) {
+    if (_hasLoadingCaption) {
       return WDiv(
         className: 'flex items-center justify-center gap-2',
         children: [spinner, WText(loadingText!)],

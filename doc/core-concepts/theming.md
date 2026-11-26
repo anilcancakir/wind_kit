@@ -265,7 +265,7 @@ WDiv(className: 'row-c bg-white dark:bg-gray-800')
 - Aliases are empty by default (`{}`). The feature is purely opt-in: a `WindThemeData` without an `aliases` key behaves identically to today.
 - If an alias key shadows a built-in token (for example, `'flex': 'flex flex-row'`), the alias wins and Wind emits a debug-mode warning so you can rename before shipping.
 - Expansion is bounded: a cyclic alias (`'a': 'a'`) and a deep or wide fan-out map terminate safely (the offending token is left unexpanded or the output is capped), so a misconfigured map never hangs rendering. Aliases are developer configuration, not a place to interpolate untrusted runtime strings.
-- An alias takes the colour opacity modifier: `<alias>/<N>` (`N` is digits or `[0.5]`) expands the alias and appends `/N` to every colour class of the expansion (`bg`, `text`, `border`, `ring`, `shadow`, `fill`, `stroke`, `from`, `via`, `to`), keeping each class's `dark:` and state prefixes. A non-colour class such as `px-4` is untouched, an outer `/N` replaces an inner `/M`, and `decoration-*` colours are not covered. An alias with no colour class expands normally, drops the `/N` and logs a debug-mode warning, never an error.
+- An alias takes the colour opacity modifier: `<alias>/<N>` (`N` is digits or `[0.5]`) expands the alias and appends `/N` to every colour class of the expansion (`bg`, `text`, `border`, `ring`, `shadow`, `fill`, `stroke`, `decoration`, `from`, `via`, `to`), keeping each class's `dark:` and state prefixes. A non-colour class such as `px-4` is untouched, and an outer `/N` replaces an inner `/M`. An alias with no colour class expands normally, drops the `/N` and logs a debug-mode warning, never an error.
 
 ```dart
 WindThemeData(

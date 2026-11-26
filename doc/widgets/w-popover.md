@@ -107,7 +107,7 @@ While `WPopover` itself isn't a layout container, it supports various **Alignmen
 
 ### Alignment
 
-`WPopover` intelligently "flips" the alignment if the requested position would cause the overlay to overflow the screen edges. When neither side has room for `maxHeight`, it keeps the roomier side and shrinks to the space there, 8 pixels short of the edge, so a tall menu scrolls instead of running off a small window. The content has to be able to scroll for that: give the popover `overflow-y-auto` (or build the content on a scroll view), or a plain column overflows once capped.
+`WPopover` intelligently "flips" the alignment if the requested position would cause the overlay to overflow the screen edges. The vertical flip goes by the panel's real height, capped at `maxHeight`: the panel is laid out once, unpainted, on its first frame open, so a short menu near the foot of a phone screen still opens on its requested side when it fits there. When neither side has room for the panel, it keeps the roomier side and shrinks to the space there, 8 pixels short of the edge, so a tall menu scrolls instead of running off a small window. The content has to be able to scroll for that: give the popover `overflow-y-auto` (or build the content on a scroll view), or a plain column overflows once capped.
 
 <x-preview path="widgets/w_popover_alignment" size="md" source="example/lib/pages/widgets/w_popover_alignment.dart"></x-preview>
 

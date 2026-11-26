@@ -289,8 +289,9 @@ class WPopover extends StatefulWidget {
 
   /// Whether to automatically flip alignment when overflow would occur.
   ///
-  /// When true, WPopover calculates optimal direction BEFORE opening the overlay,
-  /// preventing the popover from appearing off-screen.
+  /// When true, WPopover estimates the side from [maxHeight] before opening the
+  /// overlay and settles it on the measured panel height before the first
+  /// paint, so the popover never appears off-screen or on the wrong side.
   ///
   /// Default: `true`
   final bool autoFlip;
@@ -388,8 +389,25 @@ class _WPopoverState extends State<WPopover> {
   /// separate outside tap on a later frame still closes the popover.
   bool _suppressNextTapOutside = false;
 
-  /// Pre-calculated effective alignment (computed before opening).
+  /// The side the panel opens on: estimated from [WPopover.maxHeight] before
+  /// opening, settled on the measured panel height before the first paint.
   PopoverAlignment? _effectiveAlignment;
+
+  /// Bumped by every [open], so a reveal scheduled by an earlier open (closed
+  /// and re-opened before its callback ran) is ignored instead of revealing
+  /// the new panel before it is measured.
+  int _openGeneration = 0;
+
+  /// Whether the open panel is in its invisible measuring frame.
+  ///
+  /// The flip needs the panel's real height, which exists only after layout.
+  /// With [WPopover.autoFlip] on, [open] lays the panel out once unpainted,
+  /// unhittable and out of the semantics tree, and [_revealMeasured] then
+  /// settles the side on the measured height and shows it.
+  bool _measuring = false;
+
+  /// Keys the overlay's [ConstrainedBox], whose size is the panel's.
+  final GlobalKey _panelKey = GlobalKey();
 
   /// Computes effective alignment by flipping when overflow would occur.
   ///
@@ -663,15 +681,21 @@ class _WPopoverState extends State<WPopover> {
       _suppressNextTapOutside = false;
     });
 
-    // Calculate effective alignment BEFORE showing overlay
+    // Estimate the side from maxHeight for the measuring frame; the measured
+    // height settles it one frame later, before anything is painted.
     if (widget.autoFlip) {
       _calculateEffectiveAlignment();
+      final int generation = ++_openGeneration;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _revealMeasured(generation),
+      );
     } else {
       _effectiveAlignment = widget.alignment;
     }
 
     setState(() {
       _isOpen = true;
+      _measuring = widget.autoFlip;
       _overlayController.show();
       widget.onOpen?.call();
       // Sync controller if exists and not already synced
@@ -681,8 +705,24 @@ class _WPopoverState extends State<WPopover> {
     });
   }
 
-  /// Calculate effective alignment before opening based on available space.
-  void _calculateEffectiveAlignment() {
+  /// Settles the side on the panel height laid out in the measuring frame and
+  /// paints the panel there.
+  void _revealMeasured(int generation) {
+    if (!mounted || generation != _openGeneration || !_measuring) return;
+
+    final RenderBox? panelBox =
+        _panelKey.currentContext?.findRenderObject() as RenderBox?;
+    setState(() {
+      if (panelBox != null && panelBox.hasSize) {
+        _calculateEffectiveAlignment(popoverHeight: panelBox.size.height);
+      }
+      _measuring = false;
+    });
+  }
+
+  /// Calculate effective alignment based on available space, for a panel
+  /// [popoverHeight] tall (the [WPopover.maxHeight] estimate when unknown).
+  void _calculateEffectiveAlignment({double? popoverHeight}) {
     final RenderBox? triggerBox =
         _triggerKey.currentContext?.findRenderObject() as RenderBox?;
     if (triggerBox != null && triggerBox.hasSize) {
@@ -710,13 +750,11 @@ class _WPopoverState extends State<WPopover> {
               ? effectiveMaxWidth
               : triggerBox.size.width);
 
-      final double popoverHeight = widget.maxHeight;
-
       _effectiveAlignment = computeEffectiveAlignment(
         requested: widget.alignment,
         triggerPosition: triggerPosition,
         triggerSize: triggerBox.size,
-        popoverSize: Size(popoverWidth, popoverHeight),
+        popoverSize: Size(popoverWidth, popoverHeight ?? widget.maxHeight),
         screenSize: screenSize,
         offset: widget.offset,
       );
@@ -750,6 +788,7 @@ class _WPopoverState extends State<WPopover> {
     _reclaimFocusOnce = false;
     setState(() {
       _isOpen = false;
+      _measuring = false;
       _overlayController.hide();
       widget.onClose?.call();
       // Sync controller if exists and not already synced
@@ -1048,9 +1087,13 @@ class _WPopoverState extends State<WPopover> {
     // taller than both sides still ran off the window (a 480px menu under a
     // control band at y=256 of a 600px desktop window). Cap the overlay at the
     // room on its side so the content scrolls. Gated on autoFlip, like the
-    // horizontal clamp.
+    // horizontal clamp. The measuring frame skips the cap, so the measured
+    // height is the panel's own up to maxHeight, not the room on a guessed side.
     double effectiveMaxHeight = widget.maxHeight;
-    if (widget.autoFlip && triggerBox != null && triggerBox.hasSize) {
+    if (widget.autoFlip &&
+        !_measuring &&
+        triggerBox != null &&
+        triggerBox.hasSize) {
       final double available = computeAvailableHeight(
         alignment: effectiveAlignment,
         triggerPosition: triggerBox.localToGlobal(Offset.zero),
@@ -1070,40 +1113,65 @@ class _WPopoverState extends State<WPopover> {
         alignment: _overlayAlignmentFor(effectiveAlignment),
         widthFactor: 1,
         heightFactor: 1,
-        child: TapRegion(
-          groupId: _tapRegionGroupId,
-          onTapOutside: widget.closeOnOutsideTap
-              ? (_) => _handleTapOutside()
-              : null,
-          child: GestureDetector(
-            onTap: widget.closeOnContentTap ? close : null,
-            behavior: HitTestBehavior.translucent,
-            child: Material(
-              elevation: 0,
-              color: Colors.transparent,
-              child: ConstrainedBox(
-                constraints: fixedWidth != null
-                    // Fixed width: pin the overlay exactly (WSelect parity).
-                    ? BoxConstraints(
-                        maxHeight: effectiveMaxHeight,
-                        minWidth: fixedWidth,
-                        maxWidth: fixedWidth,
-                      )
-                    // Flexible width: at least the trigger width (clamped so it
-                    // never exceeds the bound), at most effectiveMaxWidth.
-                    : BoxConstraints(
-                        maxHeight: effectiveMaxHeight,
-                        minWidth: triggerWidth > effectiveMaxWidth
-                            ? effectiveMaxWidth
-                            : triggerWidth,
-                        maxWidth: effectiveMaxWidth,
-                      ),
-                child: WDiv(
+        // The measuring frame lays the panel out without painting, hit testing
+        // or announcing it. The wrappers stay in the tree when it is revealed,
+        // so the content keeps its state.
+        child: Opacity(
+          opacity: _measuring ? 0 : 1,
+          child: ExcludeSemantics(
+            excluding: _measuring,
+            child: TapRegion(
+              groupId: _tapRegionGroupId,
+              onTapOutside: widget.closeOnOutsideTap
+                  ? (_) => _handleTapOutside()
+                  : null,
+              child: IgnorePointer(
+                ignoring: _measuring,
+                child: _buildPanel(
+                  context,
                   className: effectiveClassName,
-                  child: widget.contentBuilder(context, close),
+                  constraints: fixedWidth != null
+                      // Fixed width: pin the overlay exactly (WSelect parity).
+                      ? BoxConstraints(
+                          maxHeight: effectiveMaxHeight,
+                          minWidth: fixedWidth,
+                          maxWidth: fixedWidth,
+                        )
+                      // Flexible width: at least the trigger width (clamped so
+                      // it never exceeds the bound), at most effectiveMaxWidth.
+                      : BoxConstraints(
+                          maxHeight: effectiveMaxHeight,
+                          minWidth: triggerWidth > effectiveMaxWidth
+                              ? effectiveMaxWidth
+                              : triggerWidth,
+                          maxWidth: effectiveMaxWidth,
+                        ),
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPanel(
+    BuildContext context, {
+    required String className,
+    required BoxConstraints constraints,
+  }) {
+    return GestureDetector(
+      onTap: widget.closeOnContentTap ? close : null,
+      behavior: HitTestBehavior.translucent,
+      child: Material(
+        elevation: 0,
+        color: Colors.transparent,
+        child: ConstrainedBox(
+          key: _panelKey,
+          constraints: constraints,
+          child: WDiv(
+            className: className,
+            child: widget.contentBuilder(context, close),
           ),
         ),
       ),

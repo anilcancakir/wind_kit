@@ -787,6 +787,44 @@ void main() {
         expect(find.text('Save'), findsOneWidget);
       });
 
+      // The unpainted child sits on top of the spinner, and `Opacity(0)` does
+      // not stop hit testing, so a gesture handler inside it used to fire.
+      testWidgets('keeps a tap off the unpainted child while loading (#321)', (
+        tester,
+      ) async {
+        final SemanticsHandle handle = tester.ensureSemantics();
+        try {
+          int childTaps = 0;
+          int buttonTaps = 0;
+
+          await tester.pumpWidget(
+            wrapWithTheme(
+              WButton(
+                onTap: () => buttonTaps++,
+                isLoading: true,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => childTaps++,
+                  child: const Text('Save'),
+                ),
+              ),
+            ),
+          );
+
+          await tester.tap(find.byType(WButton));
+          await tester.pump();
+
+          expect(childTaps, 0);
+          expect(buttonTaps, 0);
+          expect(
+            tester.getSemantics(find.byType(WButton)),
+            isSemantics(isButton: true, label: 'Save'),
+          );
+        } finally {
+          handle.dispose();
+        }
+      });
+
       testWidgets('shows loading spinner when isLoading is true (#321)', (
         tester,
       ) async {

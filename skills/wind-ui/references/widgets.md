@@ -858,6 +858,7 @@ const WPopover({
   bool disabled = false,
   bool closeOnContentTap = false,
   bool closeOnOutsideTap = true,         // false keeps the panel open on an outside tap
+  bool consumeOutsideTap = false,        // true keeps the closing tap from the widget below
   VoidCallback? onOpen,
   VoidCallback? onClose,
   bool autoFlip = true,                  // flip alignment when overflow would occur
@@ -887,6 +888,8 @@ Trigger interactivity: `enableTriggerOnTap` toggling is driven by a pointer-down
 `semanticLabel` is the accessible name of an icon-only trigger (a bell, an avatar). It names the trigger's merged button node when `enableTriggerOnTap` is `true` (read in front of any visible trigger text), and that node reports `expanded` while the panel is open; with `enableTriggerOnTap: false` the popover adds no node, so label your own trigger and this value is ignored.
 
 `closeOnOutsideTap: false` keeps the panel open on an outside tap (for a companion panel beside it); it still closes through the `PopoverController`, the trigger, Escape and the `close` callback of `contentBuilder`.
+
+By default the outside tap that closes the panel also reaches the widget it lands on (a bottom navigation item, a list row). `consumeOutsideTap: true` claims that pointer in the gesture arena, so no `GestureDetector` below sees it (a drag starting there included; a raw `Listener` still gets the pointer down; a screen reader's activation is not stopped). Trigger taps still toggle; no effect while `closeOnOutsideTap` is `false`. Use it for menus; leave it off for a companion panel beside the page.
 
 ### `WTooltip`
 

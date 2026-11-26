@@ -281,6 +281,19 @@ class WPopover extends StatefulWidget {
   /// `close` callback of [contentBuilder].
   final bool closeOnOutsideTap;
 
+  /// Whether the outside tap that closes the popover is kept from the widget
+  /// below it.
+  ///
+  /// Default: `false`, so the tap that closes the panel also reaches whatever
+  /// it lands on (a bottom navigation item, a list row). With `true` the
+  /// pointer is claimed in the gesture arena, so no `GestureDetector` below
+  /// sees it, a drag that starts there included; a raw `Listener` still gets
+  /// the pointer down, and a screen reader's activation is not stopped
+  /// (`TapRegion` cannot consume a semantics action). A tap on a dialog or
+  /// page above the popover's route is not an outside tap. No effect while
+  /// [closeOnOutsideTap] is `false`.
+  final bool consumeOutsideTap;
+
   /// Callback when popover opens
   final VoidCallback? onOpen;
 
@@ -313,6 +326,7 @@ class WPopover extends StatefulWidget {
     this.disabled = false,
     this.closeOnContentTap = false,
     this.closeOnOutsideTap = true,
+    this.consumeOutsideTap = false,
     this.onOpen,
     this.onClose,
     this.autoFlip = true,
@@ -1125,6 +1139,9 @@ class _WPopoverState extends State<WPopover> {
               onTapOutside: widget.closeOnOutsideTap
                   ? (_) => _handleTapOutside()
                   : null,
+              // Mounted only while open, so a closed popover claims nothing.
+              consumeOutsideTaps:
+                  widget.closeOnOutsideTap && widget.consumeOutsideTap,
               child: IgnorePointer(
                 ignoring: _measuring,
                 child: _buildPanel(

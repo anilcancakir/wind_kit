@@ -71,6 +71,7 @@ const WPopover({
   bool disabled = false,
   bool closeOnContentTap = false,
   bool closeOnOutsideTap = true,
+  bool consumeOutsideTap = false,
   VoidCallback? onOpen,
   VoidCallback? onClose,
   bool autoFlip = true,
@@ -95,6 +96,7 @@ const WPopover({
 | `semanticLabel` | `String?` | `null` | Accessible name of the trigger, for a trigger with no visible text such as an icon-only bell or avatar. It is read in front of any visible trigger text. Applies only when `enableTriggerOnTap` is `true`; see [Event Handling](#event-handling). |
 | `closeOnContentTap` | `bool` | `false` | Whether tapping inside the content closes the popover. |
 | `closeOnOutsideTap` | `bool` | `true` | Whether a tap outside the panel closes the popover. With `false` the panel stays open on an outside tap and still closes through the controller, the trigger, Escape and the `close` callback of `contentBuilder`. |
+| `consumeOutsideTap` | `bool` | `false` | Whether the outside tap that closes the popover is kept from the widget below it. Gesture detectors below see nothing; a raw `Listener` still gets the pointer down, and a screen reader's activation is not stopped. No effect while `closeOnOutsideTap` is `false`. |
 | `disabled` | `bool` | `false` | When true, the trigger will not respond to interactions and is not a Tab stop. |
 | `onOpen` | `VoidCallback?` | `null` | Callback fired when the popover is opened. |
 | `onClose` | `VoidCallback?` | `null` | Callback fired when the popover is closed. |
@@ -163,6 +165,16 @@ WPopover(
     onTap: close,
     child: Text('Close'),
   ),
+)
+```
+
+The tap that closes the panel also reaches whatever it lands on, so on a phone a tap meant to dismiss a menu can press a bottom navigation item in the same gesture. Set `consumeOutsideTap: true` to keep that tap from the widget below. The pointer is claimed in the gesture arena, so no `GestureDetector` below sees it, a drag that starts there included; a raw `Listener` still gets the pointer down. It covers pointer input only: a screen reader's activation of the control below still reaches it, because Flutter's `TapRegion` cannot stop a semantics action. Taps on the trigger are not outside taps and still toggle, and the option has no effect while `closeOnOutsideTap` is `false`.
+
+```dart
+WPopover(
+  consumeOutsideTap: true,
+  triggerBuilder: (context, isOpen, isHovering) => WText('Account'),
+  contentBuilder: (context, close) => AccountMenu(onPick: close),
 )
 ```
 

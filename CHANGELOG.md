@@ -8,6 +8,10 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- **`WPopover(consumeOutsideTap: true)` closes the popover on an outside tap without also pressing the control under it, so a tap that dismisses a menu on a phone no longer navigates through a bottom navigation item in the same gesture.** The overlay's `TapRegion` closed the panel and claimed nothing, so the tap went on to whatever it landed on; a host app's QA walk at 390 wide saw the team switcher close and the app change page on one tap. The flag passes through to `TapRegion.consumeOutsideTaps`, which claims the pointer in the gesture arena (the mechanism `MenuAnchor.consumeOutsideTap` uses), so no `GestureDetector` below sees it, a drag that starts there included; a raw `Listener` still gets the pointer down, a screen reader's activation still reaches the control (`TapRegion` cannot consume a semantics action), a dialog a panel item opens keeps its taps (pinned by a test), and the trigger, which shares the region group, still toggles. It is off by default, keeping the pass through a companion panel wants, and has no effect while `closeOnOutsideTap` is `false`. A full-screen barrier behind the panel was rejected: it would also need to let the trigger through and block nothing while closed, which the region group already gives. `lib/src/widgets/w_popover.dart`, `test/widgets/w_popover/close_on_outside_tap_test.dart`, `doc/widgets/w-popover.md`, `example/lib/pages/popover/popover_basic.dart`, `skills/wind-ui/SKILL.md`, `skills/wind-ui/references/widgets.md` (#348)
+
 ---
 
 ## [1.13.1] - 2026-11-26

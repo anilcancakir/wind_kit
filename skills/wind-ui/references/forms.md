@@ -307,6 +307,8 @@ Omit the controller when:
 
 When you pass an external controller, you own its disposal. Wind keeps the two in sync: controller text → `FormFieldState.value` through a listener, and `FormFieldState.value` → controller text in `didUpdateWidget` (which is how `FormState.reset()` clears the field).
 
+`WFormSelect.value`, `WFormMultiSelect.values` and `WFormCheckbox.value` are controlled the same way: a new value from the parent replaces the field's value on the next rebuild (`values` compares by content, so a fresh list with the same items is no change). Do not key one of these fields on its value to re-seed it: the key remounts the select, which drops its focus and, on a phone, brings the keyboard back to the field that had it before.
+
 ---
 
 ## 8. WFormDatePicker range mode gotcha

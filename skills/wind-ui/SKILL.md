@@ -1,11 +1,11 @@
 ---
 name: wind-ui
 description: "Style Flutter UI with wind_kit: Tailwind-syntax className, W-widgets, dark: pairs, stacked prefixes, WindRecipe and WDynamic."
-version: 2.34.0
+version: 2.34.1
 when_to_use: "Use when writing, editing or auditing Flutter UI in an app that uses wind_kit: a className, W-widget, theme or overflow."
 ---
 
-<!-- wind_kit 1.13.x | Skill v2.34.0 (2026-11-26) -->
+<!-- wind_kit 1.13.x | Skill v2.34.1 (2026-11-26) -->
 
 # Wind UI
 

@@ -240,6 +240,101 @@ void main() {
       });
     });
 
+    group('Controlled Value', () {
+      setUp(WindParser.clearCache);
+
+      Widget buildSelect(String? value) {
+        return wrapWithTheme(
+          Form(
+            child: WFormSelect<String>(value: value, options: testOptions),
+          ),
+        );
+      }
+
+      testWidgets('follows a value the parent changes', (tester) async {
+        await tester.pumpWidget(buildSelect('us'));
+        expect(find.text('United States'), findsOneWidget);
+
+        await tester.pumpWidget(buildSelect('tr'));
+
+        expect(find.text('Turkey'), findsOneWidget);
+        expect(find.text('United States'), findsNothing);
+      });
+
+      testWidgets('drops a shown error once the parent fills the value', (
+        tester,
+      ) async {
+        final formKey = GlobalKey<FormState>();
+        Widget build(String? value) => wrapWithTheme(
+          Form(
+            key: formKey,
+            child: WFormSelect<String>(
+              value: value,
+              options: testOptions,
+              validator: (value) => value == null ? 'Required' : null,
+            ),
+          ),
+        );
+
+        await tester.pumpWidget(build(null));
+        formKey.currentState!.validate();
+        await tester.pump();
+        expect(find.text('Required'), findsOneWidget);
+
+        await tester.pumpWidget(build('tr'));
+
+        expect(find.text('Required'), findsNothing);
+        expect(find.text('Turkey'), findsOneWidget);
+      });
+
+      testWidgets('keeps an open menu when an error appears below it', (
+        tester,
+      ) async {
+        final formKey = GlobalKey<FormState>();
+        await tester.pumpWidget(
+          wrapWithTheme(
+            Form(
+              key: formKey,
+              child: WFormSelect<String>(
+                options: testOptions,
+                validator: (value) => value == null ? 'Required' : null,
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Select an option'));
+        await tester.pumpAndSettle();
+        expect(find.text('Turkey'), findsOneWidget);
+
+        formKey.currentState!.validate();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Required'), findsOneWidget);
+        expect(find.text('Turkey'), findsOneWidget);
+      });
+
+      testWidgets('clears when the parent value becomes null', (tester) async {
+        await tester.pumpWidget(buildSelect('uk'));
+        await tester.pumpWidget(buildSelect(null));
+
+        expect(find.text('Select an option'), findsOneWidget);
+      });
+
+      testWidgets('keeps a pick while the parent value is unchanged', (
+        tester,
+      ) async {
+        await tester.pumpWidget(buildSelect('us'));
+        await tester.tap(find.text('United States'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Turkey'));
+        await tester.pumpAndSettle();
+
+        await tester.pumpWidget(buildSelect('us'));
+
+        expect(find.text('Turkey'), findsOneWidget);
+      });
+    });
+
     group('Form Reset', () {
       testWidgets('Form.reset() restores to initial value', (tester) async {
         final formKey = GlobalKey<FormState>();
@@ -537,6 +632,120 @@ void main() {
         // Note: FormField resets to initialValue, but doesn't call onMultiChange
         // So we just verify no error occurs
         expect(find.byType(WFormMultiSelect<String>), findsOneWidget);
+      });
+    });
+
+    group('Controlled Multi-Select Values', () {
+      setUp(WindParser.clearCache);
+
+      Widget buildMultiSelect(List<String> values) {
+        return wrapWithTheme(
+          Form(
+            child: WFormMultiSelect<String>(
+              values: values,
+              options: testOptions,
+            ),
+          ),
+        );
+      }
+
+      testWidgets('follows values the parent changes', (tester) async {
+        await tester.pumpWidget(buildMultiSelect(['us']));
+        expect(find.text('Turkey'), findsNothing);
+
+        await tester.pumpWidget(buildMultiSelect(['us', 'tr']));
+
+        expect(find.text('United States'), findsOneWidget);
+        expect(find.text('Turkey'), findsOneWidget);
+      });
+
+      testWidgets('keeps toggles when the parent passes equal values', (
+        tester,
+      ) async {
+        await tester.pumpWidget(buildMultiSelect(['us']));
+        await tester.tap(find.text('United States'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Turkey'));
+        await tester.pumpAndSettle();
+        await tester.tapAt(Offset.zero);
+        await tester.pumpAndSettle();
+
+        // A new list with the same content is not a change.
+        await tester.pumpWidget(buildMultiSelect(['us']));
+
+        expect(find.text('Turkey'), findsOneWidget);
+      });
+
+      testWidgets('keeps an open menu when an error appears below it', (
+        tester,
+      ) async {
+        final formKey = GlobalKey<FormState>();
+        await tester.pumpWidget(
+          wrapWithTheme(
+            Form(
+              key: formKey,
+              child: WFormMultiSelect<String>(
+                options: testOptions,
+                validator: (values) =>
+                    (values == null || values.isEmpty) ? 'Pick one' : null,
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Select options'));
+        await tester.pumpAndSettle();
+        expect(find.text('Turkey'), findsOneWidget);
+
+        formKey.currentState!.validate();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Pick one'), findsOneWidget);
+        expect(find.text('Turkey'), findsOneWidget);
+      });
+
+      testWidgets('keeps toggles when values go from null to empty', (
+        tester,
+      ) async {
+        Widget build(List<String>? values) => wrapWithTheme(
+          Form(
+            child: WFormMultiSelect<String>(
+              values: values,
+              options: testOptions,
+            ),
+          ),
+        );
+
+        await tester.pumpWidget(build(null));
+        await tester.tap(find.text('Select options'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Turkey'));
+        await tester.pumpAndSettle();
+        await tester.tapAt(Offset.zero);
+        await tester.pumpAndSettle();
+
+        await tester.pumpWidget(build(<String>[]));
+
+        expect(find.text('Turkey'), findsOneWidget);
+      });
+
+      testWidgets('follows a parent list changed in place', (tester) async {
+        final List<String> parentValues = ['us'];
+
+        await tester.pumpWidget(buildMultiSelect(parentValues));
+        await tester.tap(find.text('United States'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Turkey'));
+        await tester.pumpAndSettle();
+        await tester.tapAt(Offset.zero);
+        await tester.pumpAndSettle();
+
+        parentValues
+          ..clear()
+          ..add('uk');
+        await tester.pumpWidget(buildMultiSelect(parentValues));
+
+        expect(find.text('United Kingdom'), findsOneWidget);
+        expect(find.text('Turkey'), findsNothing);
       });
     });
 

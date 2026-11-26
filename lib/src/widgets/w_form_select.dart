@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:material_ui/material_ui.dart';
 
 import '../utils/wind_perf_counters.dart';
@@ -36,7 +37,7 @@ class WFormSelect<T> extends FormField<T> {
   /// Creates a Wind-styled form select (single-select).
   WFormSelect({
     super.key,
-    T? value,
+    this.value,
     super.validator,
     super.onSaved,
     super.autovalidateMode,
@@ -111,6 +112,18 @@ class WFormSelect<T> extends FormField<T> {
            );
          },
        );
+
+  /// The selected value.
+  ///
+  /// A change between rebuilds, compared with `==`, replaces the field's value
+  /// and re-runs a validator whose error is showing, so the parent can drive
+  /// the select without a key that remounts it (and drops its focus). A pick
+  /// the parent does not echo back stays until this value changes; a `T`
+  /// without value equality built fresh each frame counts as a change.
+  final T? value;
+
+  @override
+  FormFieldState<T> createState() => _WFormSelectState<T>();
 
   /// The list of available options.
   final List<SelectOption<T>> options;
@@ -198,6 +211,29 @@ class WFormSelect<T> extends FormField<T> {
   final String errorClassName;
 }
 
+/// Syncs the field when the parent's [WFormSelect.value] changes.
+///
+/// [FormField.initialValue] is read once on creation, so without this a new
+/// value from the parent is ignored.
+class _WFormSelectState<T> extends FormFieldState<T> {
+  /// Keeps the [WSelect] element, with its open menu and focus, when an error
+  /// or hint appearing or clearing moves it in or out of the label column.
+  final GlobalKey selectKey = GlobalKey();
+
+  @override
+  WFormSelect<T> get widget => super.widget as WFormSelect<T>;
+
+  @override
+  void didUpdateWidget(covariant WFormSelect<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value == widget.value) return;
+
+    setValue(widget.value);
+    // An error shown for the old value would sit next to the new one.
+    if (hasError) validate();
+  }
+}
+
 /// Internal widget for WFormSelect.
 class _WFormSelectContent<T> extends StatelessWidget {
   const _WFormSelectContent({
@@ -272,6 +308,7 @@ class _WFormSelectContent<T> extends StatelessWidget {
 
     WindPerfCounters.recordWidgetBuild('WFormSelect');
     final select = WSelect<T>(
+      key: (state as _WFormSelectState<T>).selectKey,
       value: state.value,
       options: options,
       onChange: (newValue) {
@@ -363,7 +400,7 @@ class WFormMultiSelect<T> extends FormField<List<T>> {
   /// Creates a Wind-styled form multi-select.
   WFormMultiSelect({
     super.key,
-    List<T>? values,
+    this.values,
     super.validator,
     super.onSaved,
     super.autovalidateMode,
@@ -443,6 +480,18 @@ class WFormMultiSelect<T> extends FormField<List<T>> {
 
   /// The list of available options.
   final List<SelectOption<T>> options;
+
+  /// The selected values.
+  ///
+  /// A change in content between rebuilds replaces the field's values and
+  /// re-runs a validator whose error is showing; a new list with the same
+  /// items in the same order is not a change, null counts as empty, and a
+  /// list the parent edits in place is compared against a copy of its last
+  /// contents.
+  final List<T>? values;
+
+  @override
+  FormFieldState<List<T>> createState() => _WFormMultiSelectState<T>();
 
   /// Called when selection changes.
   final ValueChanged<List<T>>? onMultiChange;
@@ -531,6 +580,39 @@ class WFormMultiSelect<T> extends FormField<List<T>> {
   final String errorClassName;
 }
 
+/// Syncs the field when the parent's [WFormMultiSelect.values] change.
+///
+/// Compares against a copy of the last values the parent passed rather than
+/// `oldWidget.values`: a parent that edits its list in place hands over the
+/// same object twice, so the two would always match.
+class _WFormMultiSelectState<T> extends FormFieldState<List<T>> {
+  /// Keeps the [WSelect] element in place; see [_WFormSelectState.selectKey].
+  final GlobalKey selectKey = GlobalKey();
+
+  late List<T> _parentValues;
+
+  @override
+  WFormMultiSelect<T> get widget => super.widget as WFormMultiSelect<T>;
+
+  @override
+  void initState() {
+    super.initState();
+    _parentValues = List<T>.of(widget.values ?? <T>[]);
+  }
+
+  @override
+  void didUpdateWidget(covariant WFormMultiSelect<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final List<T> incoming = widget.values ?? <T>[];
+    if (listEquals(_parentValues, incoming)) return;
+
+    _parentValues = List<T>.of(incoming);
+    setValue(List<T>.of(incoming));
+    // An error shown for the old values would sit next to the new ones.
+    if (hasError) validate();
+  }
+}
+
 /// Internal widget for WFormMultiSelect.
 class _WFormMultiSelectContent<T> extends StatelessWidget {
   const _WFormMultiSelectContent({
@@ -607,6 +689,7 @@ class _WFormMultiSelectContent<T> extends StatelessWidget {
 
     WindPerfCounters.recordWidgetBuild('WFormMultiSelect');
     final select = WSelect<T>(
+      key: (state as _WFormMultiSelectState<T>).selectKey,
       isMulti: true,
       values: state.value,
       options: options,

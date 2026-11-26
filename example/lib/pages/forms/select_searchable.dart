@@ -62,7 +62,7 @@ class _SelectSearchableExamplePageState
           // Local search
           _buildSection(
             title: 'Local Filtering',
-            description: 'Search filters options locally',
+            description: 'Search filters options locally. Arrow keys move the highlight, Enter picks, Escape closes',
             children: [
               WSelect<String>(
                 value: _selectedLocal,

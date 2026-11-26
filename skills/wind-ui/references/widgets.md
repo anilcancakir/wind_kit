@@ -454,6 +454,11 @@ Behaviour:
 - Search: async `onSearch` runs filtering remotely; without it, local `contains`-based filter.
 - Pagination: scroll listener triggers `onLoadMore` at 50 px from bottom when `hasMore: true`.
 - Opening the menu clears the search and puts the visible list back to `options`, so rows fetched through `onLoadMore` are gone. `onOpen` fires there: a paginating caller resets its cursor, or the next scroll asks for the page after the one the reader can see. Only reset if `options` resets too; a caller that mirrors fetched pages into `options` would re-fetch and duplicate.
+- Horizontal clamp: the menu is offset with `computeHorizontalClamp` (the helper `WPopover` uses), so a menu wider than the room to the right of the trigger (a narrow chip trigger, a fixed-width `menuClassName` such as `w-64`) is seated 8 px inside the window edge, on the downward and the open-upward path. A menu that fits is not moved. The 8 px inset holds only while the menu fits in the window: the menu width is not capped, so a menu wider than the window keeps its left edge 8 px in and overflows on the right.
+- Dark mode: every default colour carries a `dark:` peer (surface `bg-white dark:bg-gray-800`, trigger, chevron, chips, search border, empty text, menu border and shadow, check icons), so no `menuClassName` is needed to fix a white menu in dark mode. A `menuClassName` with no background class (only a radius or a shadow) keeps the default surface; any background it sets, including `bg-transparent`, wins.
+- Keyboard, menu closed: a focused trigger opens on Enter, NumpadEnter, Space, ArrowDown or the remote activation keys (D-pad centre `select`, `gameButtonA`); other keys are not consumed.
+- Keyboard, menu open: ArrowUp / ArrowDown move the highlight to the next enabled option (disabled ones are skipped, no wrap); Home / End jump to the first / last enabled option; Enter, NumpadEnter, Space, `select` or `gameButtonA` select the highlighted option (single mode calls `onChange`, closes and refocuses the trigger; multi mode toggles and stays open); Escape closes and refocuses the trigger. The highlight is the hover state, so `itemBuilder`'s `isHovered` reflects it. A keyboard open highlights the selected option (else the first enabled one); a pointer open starts with none. The highlighted row scrolls into view.
+- Keyboard with `searchable: true`: opening moves focus to the search field (even away from another focused text field) and ArrowUp, ArrowDown, Enter and Escape work from it; Space and Home / End stay with the field. With no match and `onCreateOption` set, Enter runs the create action.
 
 ### `WDatePicker`
 
@@ -837,6 +842,7 @@ const WPopover({
   required PopoverContentBuilder contentBuilder,
   PopoverController? controller,         // external open/close control
   bool enableTriggerOnTap = true,        // tap on trigger toggles popover
+  String? semanticLabel,                 // names the trigger's button node (needs enableTriggerOnTap)
   PopoverAlignment alignment = PopoverAlignment.bottomLeft,
   String? className,                     // overlay container styling
   Offset offset = const Offset(0, 4),    // trigger-to-popover gap
@@ -845,6 +851,7 @@ const WPopover({
   double? maxWidth,                      // upper bound; falls back to max-w-* token then screen width
   bool disabled = false,
   bool closeOnContentTap = false,
+  bool closeOnOutsideTap = true,         // false keeps the panel open on an outside tap
   VoidCallback? onOpen,
   VoidCallback? onClose,
   bool autoFlip = true,                  // flip alignment when overflow would occur
@@ -868,6 +875,10 @@ class PopoverController extends ChangeNotifier {
 `computeEffectiveAlignment` (a top-level function) is exposed as a standalone utility for pre-calculating the flipped alignment before showing an overlay.
 
 Trigger interactivity: `enableTriggerOnTap` toggling is driven by a pointer-down `Listener`, not a tap `GestureDetector`, so it opens reliably even when `triggerBuilder` returns an interactive widget that owns its own `onTap` (a `WButton` or `WAnchor`). Both the trigger's `onTap` and the popover toggle fire on the same tap. The opening gesture cannot self-dismiss the popover (a one-shot first-frame guard absorbs the opening pointer-up); a genuine later outside tap still closes it.
+
+`semanticLabel` is the accessible name of an icon-only trigger (a bell, an avatar). It names the trigger's merged button node when `enableTriggerOnTap` is `true` (read in front of any visible trigger text), and that node reports `expanded` while the panel is open; with `enableTriggerOnTap: false` the popover adds no node, so label your own trigger and this value is ignored.
+
+`closeOnOutsideTap: false` keeps the panel open on an outside tap (for a companion panel beside it); it still closes through the `PopoverController`, the trigger, Escape and the `close` callback of `contentBuilder`.
 
 ---
 

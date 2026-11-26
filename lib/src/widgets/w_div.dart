@@ -1383,10 +1383,20 @@ class WDiv extends StatelessWidget {
   /// at [cols]). Null when no child asks for a span, so a plain grid pays no
   /// parse. Only a child whose className mentions `col-span-`, once the theme
   /// aliases are expanded, is parsed, with the build [context] so
-  /// `md:col-span-2` resolves by breakpoint; a child that exposes no className
-  /// keeps one column.
+  /// `md:col-span-2` resolves by breakpoint and an ancestor anchor's
+  /// `hover`, `focus` and `disabled` flags apply, as they do to the child; a
+  /// child that exposes no className keeps one column.
+  ///
+  /// The anchor's custom states are merged into the child's own, because
+  /// [WindContext.build] reads only the three flags. A child with `hover:` or
+  /// `focus:` classes wraps its own anchor, whose state the grid cannot see, so
+  /// a span that depends on it is not supported.
   List<int>? _resolveColSpans(int cols, BuildContext context) {
-    final aliases = WindTheme.dataOf(context).aliases;
+    // A grid styled through an explicit `style` needs no theme, so a missing
+    // one means no aliases rather than an error.
+    final aliases = WindTheme.maybeDataOf(context)?.aliases ?? const {};
+    final Set<String>? inheritedStates = WindAnchorStateProvider.of(context)
+        ?.customStates;
     List<int>? spans;
     for (var i = 0; i < children!.length; i++) {
       final className = _extractChildClassName(children![i]);
@@ -1395,7 +1405,7 @@ class WDiv extends StatelessWidget {
       final colSpan = WindParser.parse(
         className,
         context,
-        states: _extractChildStates(children![i]),
+        states: {...?_extractChildStates(children![i]), ...?inheritedStates},
       ).gridColSpan;
       if (colSpan == null) continue;
       spans ??= List<int>.filled(children!.length, 1);

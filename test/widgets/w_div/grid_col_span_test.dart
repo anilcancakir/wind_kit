@@ -297,6 +297,89 @@ void main() {
     });
   }
 
+  group('col-span parent-side resolution', () {
+    for (final (label, crossAxis) in <(String, CrossAxisAlignment?)>[
+      ('Wrap', null),
+      ('items-stretch', CrossAxisAlignment.stretch),
+    ]) {
+      testWidgets(
+        'an explicit-style $label grid builds without a WindTheme (#328)',
+        (tester) async {
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(
+                body: SizedBox(
+                  width: 400,
+                  child: WDiv(
+                    style: WindStyle(
+                      displayType: WindDisplayType.grid,
+                      gridCols: 4,
+                      gapX: 16,
+                      crossAxisAlignment: crossAxis,
+                    ),
+                    children: const [
+                      SizedBox(key: Key('a'), height: 50),
+                      SizedBox(key: Key('b'), height: 50),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+
+          expect(tester.takeException(), isNull);
+          expect(tester.getSize(at('a')).width, 88);
+        },
+      );
+
+      testWidgets(
+        'disabled:col-span-2 spans under a disabled anchor on the $label '
+        'path (#328)',
+        (tester) async {
+          await tester.pumpWidget(
+            wrapWithTheme(
+              WAnchor(
+                isDisabled: true,
+                child: WDiv(
+                  className:
+                      'grid grid-cols-4 gap-4'
+                      '${crossAxis == null ? '' : ' items-stretch'}',
+                  children: [cell('a', 'disabled:col-span-2'), cell('b', null)],
+                ),
+              ),
+              width: 400,
+            ),
+          );
+
+          expect(tester.getSize(at('a')).width, 192);
+          expect(tester.getSize(at('b')).width, 88);
+        },
+      );
+
+      testWidgets(
+        'a custom anchor state drives a span on the $label path (#328)',
+        (tester) async {
+          await tester.pumpWidget(
+            wrapWithTheme(
+              WAnchor(
+                states: const {'wide'},
+                child: WDiv(
+                  className:
+                      'grid grid-cols-4 gap-4'
+                      '${crossAxis == null ? '' : ' items-stretch'}',
+                  children: [cell('a', 'wide:col-span-2'), cell('b', null)],
+                ),
+              ),
+              width: 400,
+            ),
+          );
+
+          expect(tester.getSize(at('a')).width, 192);
+        },
+      );
+    }
+  });
+
   group('col-span on the items-stretch path only', () {
     testWidgets('cells with spans share one row height (#328)', (tester) async {
       await tester.pumpWidget(

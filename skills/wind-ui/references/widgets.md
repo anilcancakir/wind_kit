@@ -903,11 +903,11 @@ const WTooltip({
 ```
 
 - Triggers: hover shows it after `hoverDelay`; keyboard focus shows it at once (only while Flutter's focus highlight mode is the keyboard one, so a touch focus does not); a touch long press shows it and it stays 1.5 s after release.
-- Hides on pointer exit, blur or Escape. A blur closes only a tooltip that focus opened and that is still open, never another widget's. Escape is consumed only while a tooltip is open, so it still reaches the app's own shortcuts otherwise.
+- Hides on pointer exit, blur or Escape. A blur hides only a tooltip that focus opened and that is still open; the tooltips that were open beside it are shown again at once, without fading. Escape is consumed only while a tooltip is open, so it still reaches the app's own shortcuts otherwise.
 - Never takes focus and is not a Tab stop, even with a `focus:` class in `className`: the child keeps its own focus behaviour.
 - `message` becomes the child's semantics tooltip. An empty `message` renders the bare child: no overlay, no semantics tooltip.
 - Default `className` is `bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-2 py-1 rounded-md`; a given `className` replaces it entirely, so carry the `dark:` pairs yourself.
-- Position goes through the popover helpers: the box flips to the other side and stays on screen, like `WPopover` with `autoFlip`. The box is capped at the overlay height less an 8 px margin on each side, and a longer message scrolls inside it.
+- Position goes through the popover helpers: the box flips to the other side and stays on screen, like `WPopover` with `autoFlip`. The box is capped at the overlay height less an 8 px margin on each side, and a longer message scrolls inside it, in a non-primary scroll view. While it scrolls, a pointer press does not dismiss the tooltip, so a drag inside it keeps it open.
 - Needs an `Overlay` ancestor (any `MaterialApp` or `WidgetsApp` has one).
 
 ---

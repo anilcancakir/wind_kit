@@ -78,13 +78,21 @@ class _WTooltipState extends State<WTooltip> {
 
   final GlobalKey<RawTooltipState> _tooltipKey = GlobalKey<RawTooltipState>();
 
+  /// Every [WTooltip] whose overlay is open and not closing.
+  static final Set<_WTooltipState> _open = <_WTooltipState>{};
+
   /// Whether this tooltip is open because focus showed it. A blur dismisses
-  /// only while it is set, because [RawTooltip.dismissAllToolTips] cannot
-  /// narrow to one instance and would close a hovered neighbour too. The open
-  /// overlay clears it through [_handleClosed] when it starts to close, whoever
-  /// closed it (Escape, a pointer press, the pointer leaving), so a later blur
-  /// never reaches another tooltip.
+  /// only while it is set. The open overlay clears it through [_handleClosed]
+  /// when it starts to close, whoever closed it (Escape, a pointer press, the
+  /// pointer leaving), so a later blur never reaches another tooltip.
   bool _shownByFocus = false;
+
+  /// Whether the message overflows the capped box and scrolls. [RawTooltip]
+  /// dismisses on any pointer press it does not own, which includes the one
+  /// that starts a drag inside the box, so tap dismissal is off while this is
+  /// set. The tooltip still hides on pointer exit, after the touch delay, on
+  /// blur and on Escape.
+  bool _scrollable = false;
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +101,7 @@ class _WTooltipState extends State<WTooltip> {
       semanticsTooltip: widget.message,
       hoverDelay: widget.hoverDelay,
       triggerMode: TooltipTriggerMode.longPress,
+      enableTapToDismiss: !_scrollable,
       ignorePointer: false,
       positionDelegate: _position,
       tooltipBuilder: _buildTooltip,
@@ -113,7 +122,7 @@ class _WTooltipState extends State<WTooltip> {
     if (!hasFocus) {
       if (_shownByFocus) {
         _shownByFocus = false;
-        RawTooltip.dismissAllToolTips();
+        _dismissAllExceptNeighbours();
       }
       return;
     }
@@ -131,6 +140,20 @@ class _WTooltipState extends State<WTooltip> {
         _shownByFocus = true;
       }
     });
+  }
+
+  /// Hides this tooltip on blur. [RawTooltip] can only dismiss every open
+  /// tooltip at once, so each neighbour that was open is shown again in the
+  /// same call: it reverses and goes forward before a frame ticks, so it never
+  /// fades. A neighbour that opened by touch loses its auto-hide timer.
+  void _dismissAllExceptNeighbours() {
+    final List<_WTooltipState> neighbours = _open
+        .where((_WTooltipState other) => other != this)
+        .toList();
+    RawTooltip.dismissAllToolTips();
+    for (final _WTooltipState neighbour in neighbours) {
+      neighbour._tooltipKey.currentState?.ensureTooltipVisible();
+    }
   }
 
   /// Places the box on the requested side of the [child], then lets the public
@@ -198,17 +221,34 @@ class _WTooltipState extends State<WTooltip> {
     );
   }
 
+  void _handleOpened() {
+    _open.add(this);
+  }
+
   void _handleClosed() {
+    _open.remove(this);
     _shownByFocus = false;
+  }
+
+  /// Runs after the frame that laid the message out, so [setState] is safe.
+  bool _handleScrollMetrics(ScrollMetricsNotification notification) {
+    final bool scrollable = notification.metrics.maxScrollExtent > 0;
+    if (mounted && scrollable != _scrollable) {
+      setState(() => _scrollable = scrollable);
+    }
+
+    return false;
   }
 
   /// The box is capped at the overlay height less a margin on each side, so
   /// [_position] can always keep it on screen, and a longer message scrolls.
-  /// [ExcludeFocus] keeps a `focus:` className on the box from adding a Tab
-  /// stop, as the tooltip never takes focus.
+  /// The scroll view is not primary, so it never attaches to the page's
+  /// [PrimaryScrollController]. [ExcludeFocus] keeps a `focus:` className on
+  /// the box from adding a Tab stop, as the tooltip never takes focus.
   Widget _buildTooltip(BuildContext context, Animation<double> animation) {
     return _OpenTooltip(
       animation: animation,
+      onOpened: _handleOpened,
       onClosed: _handleClosed,
       child: ExcludeFocus(
         child: FadeTransition(
@@ -221,7 +261,13 @@ class _WTooltipState extends State<WTooltip> {
                 ),
                 child: WDiv(
                   className: widget.className ?? _defaultClassName,
-                  child: SingleChildScrollView(child: WText(widget.message)),
+                  child: NotificationListener<ScrollMetricsNotification>(
+                    onNotification: _handleScrollMetrics,
+                    child: SingleChildScrollView(
+                      primary: false,
+                      child: WText(widget.message),
+                    ),
+                  ),
                 ),
               );
             },
@@ -237,9 +283,10 @@ class _WTooltipState extends State<WTooltip> {
 /// the Flutter versions whose [RawTooltip] does not do it itself (before 3.50).
 /// Escape is left alone otherwise and reaches the app's own shortcuts.
 ///
-/// [onClosed] fires when the tooltip starts to hide, or at once when the
-/// overlay child is removed, so the owner never believes a closing tooltip is
-/// still open.
+/// [onOpened] fires when the overlay child mounts and when a closing tooltip
+/// is shown again. [onClosed] fires when the tooltip starts to hide, or at once
+/// when the overlay child is removed, so the owner never believes a closing
+/// tooltip is still open.
 ///
 /// The early [FocusManager] handler runs before the focus tree, so returning
 /// [KeyEventResult.handled] keeps one Escape from also closing a dialog or
@@ -247,11 +294,13 @@ class _WTooltipState extends State<WTooltip> {
 /// where nothing has primary focus, which the focus manager never sees.
 class _OpenTooltip extends StatefulWidget {
   final Animation<double> animation;
+  final VoidCallback onOpened;
   final VoidCallback onClosed;
   final Widget child;
 
   const _OpenTooltip({
     required this.animation,
+    required this.onOpened,
     required this.onClosed,
     required this.child,
   });
@@ -264,6 +313,7 @@ class _OpenTooltipState extends State<_OpenTooltip> {
   @override
   void initState() {
     super.initState();
+    widget.onOpened();
     widget.animation.addStatusListener(_handleStatus);
     FocusManager.instance.addEarlyKeyEventHandler(_handleEarlyKeyEvent);
     HardwareKeyboard.instance.addHandler(_handleHardwareKeyEvent);
@@ -279,9 +329,11 @@ class _OpenTooltipState extends State<_OpenTooltip> {
   }
 
   void _handleStatus(AnimationStatus status) {
-    if (status == AnimationStatus.reverse ||
-        status == AnimationStatus.dismissed) {
-      widget.onClosed();
+    switch (status) {
+      case AnimationStatus.forward || AnimationStatus.completed:
+        widget.onOpened();
+      case AnimationStatus.reverse || AnimationStatus.dismissed:
+        widget.onClosed();
     }
   }
 

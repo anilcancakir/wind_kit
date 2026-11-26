@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -103,6 +104,7 @@ Widget _focusTooltip({
   required List<KeyEvent> ancestorEscapes,
   String message = _message,
   String? secondMessage,
+  PopoverAlignment alignment = PopoverAlignment.bottomCenter,
 }) {
   final Widget nextButton = TextButton(
     focusNode: next,
@@ -125,6 +127,7 @@ Widget _focusTooltip({
       children: [
         WTooltip(
           message: message,
+          alignment: alignment,
           child: TextButton(
             key: _triggerKey,
             focusNode: first,
@@ -135,7 +138,11 @@ Widget _focusTooltip({
         if (secondMessage == null)
           nextButton
         else
-          WTooltip(message: secondMessage, child: nextButton),
+          WTooltip(
+            message: secondMessage,
+            alignment: alignment,
+            child: nextButton,
+          ),
       ],
     ),
   );
@@ -338,6 +345,58 @@ void main() {
 
           expect(first.hasFocus, isFalse);
           expect(next.hasFocus, isFalse);
+          expect(find.text('Discard'), findsOneWidget);
+        },
+      );
+
+      testWidgets(
+        'keeps a hovered tooltip open when a focus-shown one blurs (#323)',
+        (tester) async {
+          _highlight(FocusHighlightStrategy.alwaysTraditional);
+          final FocusNode first = _node('first');
+          final FocusNode next = _node('next');
+          await tester.pumpWidget(
+            wrapWithTheme(
+              _focusTooltip(
+                first: first,
+                next: next,
+                ancestorEscapes: [],
+                secondMessage: 'Discard',
+                alignment: PopoverAlignment.topCenter,
+              ),
+              placement: Alignment.bottomLeft,
+            ),
+          );
+          final TestGesture gesture = await _mouse(tester);
+          await gesture.moveTo(tester.getCenter(find.text('Next')));
+          await tester.pump(const Duration(milliseconds: 500));
+          await tester.pump(const Duration(milliseconds: 200));
+          expect(find.text('Discard'), findsOneWidget);
+
+          first.requestFocus();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+          expect(find.text(_message), findsOneWidget);
+          expect(find.text('Discard'), findsOneWidget);
+
+          final Animation<double> hovered = tester
+              .widget<FadeTransition>(
+                find
+                    .ancestor(
+                      of: find.text('Discard'),
+                      matching: find.byType(FadeTransition),
+                    )
+                    .first,
+              )
+              .opacity;
+
+          first.unfocus();
+
+          // Flutter's own hover tracking can bring a closing tooltip back on
+          // the next frame, so the check is that it never started to close.
+          expect(hovered.status, isNot(AnimationStatus.reverse));
+          await tester.pumpAndSettle();
+          expect(find.text(_message), findsNothing);
           expect(find.text('Discard'), findsOneWidget);
         },
       );
@@ -740,6 +799,114 @@ void main() {
               .maxScrollExtent,
           greaterThan(0),
         );
+      });
+    });
+
+    group('Scrolling', () {
+      final String tallMessage = List<String>.filled(30, 'Line').join('\n');
+
+      testWidgets(
+        'leaves an inherited primary scroll controller alone (#323)',
+        (tester) async {
+          debugDefaultTargetPlatformOverride = TargetPlatform.android;
+          try {
+            _sizeView(tester, const Size(800, 120));
+            final ScrollController page = ScrollController();
+            addTearDown(page.dispose);
+            await tester.pumpWidget(
+              wrapWithTheme(
+                PrimaryScrollController(
+                  controller: page,
+                  child: _tooltip(message: tallMessage),
+                ),
+                placement: Alignment.center,
+              ),
+            );
+            final TestGesture gesture = await _mouse(tester);
+            await gesture.moveTo(tester.getCenter(find.byKey(_triggerKey)));
+            await tester.pump(const Duration(milliseconds: 500));
+            await tester.pump(const Duration(milliseconds: 200));
+            expect(find.byType(SingleChildScrollView), findsOneWidget);
+
+            expect(page.positions, isEmpty);
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        },
+      );
+
+      testWidgets('stays open while a touch drag scrolls the message (#323)', (
+        tester,
+      ) async {
+        _sizeView(tester, const Size(800, 120));
+        await tester.pumpWidget(
+          wrapWithTheme(
+            _tooltip(message: tallMessage),
+            placement: Alignment.center,
+          ),
+        );
+        await tester.longPress(find.byKey(_triggerKey));
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(find.byType(SingleChildScrollView), findsOneWidget);
+
+        await tester.drag(
+          find.byType(SingleChildScrollView),
+          const Offset(0, -40),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 250));
+
+        expect(find.byType(SingleChildScrollView), findsOneWidget);
+        expect(
+          tester
+              .state<ScrollableState>(find.byType(Scrollable))
+              .position
+              .pixels,
+          greaterThan(0),
+        );
+      });
+
+      testWidgets('dismisses on a tap outside once the message fits (#323)', (
+        tester,
+      ) async {
+        _sizeView(tester, const Size(800, 120));
+        await tester.pumpWidget(
+          wrapWithTheme(
+            _tooltip(message: tallMessage),
+            placement: Alignment.center,
+          ),
+        );
+        await tester.longPress(find.byKey(_triggerKey));
+        await tester.pump(const Duration(milliseconds: 200));
+        await _escape(tester);
+        expect(find.byType(SingleChildScrollView), findsNothing);
+
+        _sizeView(tester, const Size(800, 2000));
+        await tester.pump();
+        await tester.longPress(find.byKey(_triggerKey));
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(find.byType(SingleChildScrollView), findsOneWidget);
+
+        await tester.tapAt(const Offset(10, 10));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+
+        expect(find.byType(SingleChildScrollView), findsNothing);
+      });
+
+      testWidgets('still dismisses a short tooltip on a tap outside (#323)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(wrapWithTheme(_tooltip()));
+        await tester.longPress(find.byKey(_triggerKey));
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(find.text(_message), findsOneWidget);
+
+        await tester.tapAt(const Offset(500, 400));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+
+        expect(find.text(_message), findsNothing);
       });
     });
 

@@ -37,7 +37,7 @@ WDiv(
 > This utility wraps the element in a Flutter `Opacity` widget (an `AnimatedOpacity` when a transition is set). To change only the background colour's opacity without affecting text, use the colour opacity modifier (e.g., `bg-blue-500/50`) instead.
 
 > [!NOTE]
-> The colour modifier also works on a colour alias: with `'bg-brand': 'bg-emerald-500 dark:bg-emerald-400'` in the theme, `bg-brand/50` applies `/50` to both colour classes. See [Aliases](../core-concepts/theming.md#aliases).
+> The colour modifier also works on `decoration-{colour}` (e.g., `decoration-red-500/50`) and on a colour alias: with `'bg-brand': 'bg-emerald-500 dark:bg-emerald-400'` in the theme, `bg-brand/50` applies `/50` to both colour classes. See [Aliases](../core-concepts/theming.md#aliases).
 
 <a name="quick-reference"></a>
 ## Quick Reference

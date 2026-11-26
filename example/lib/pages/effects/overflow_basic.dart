@@ -72,7 +72,7 @@ class OverflowBasicExamplePage extends StatelessWidget {
         ),
         ExampleSection(
           title: 'Fill Below a Scroll',
-          description: 'h-full fills any bounded parent below a vertical scroll, here an h-40 box. Directly in the scroll, or under flex-col, use flex-1.',
+          description: 'h-full fills any bounded parent below a vertical scroll, here an h-40 box. With no bounded parent, put flex flex-col h-full on the outer parent and flex-1 overflow-y-auto on its body.',
           child: WDiv(
             className: '''
               overflow-y-auto h-64 p-4 rounded-lg

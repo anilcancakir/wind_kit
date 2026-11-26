@@ -44,20 +44,48 @@ void main() {
       expect(tester.getSize(find.byType(_Probe)).height, 160);
     });
 
-    testWidgets('asserts as a direct child of the scroll (#318)', (
+    testWidgets(
+      'asserts as a direct child of the scroll, pointing at a bounded '
+      'column with the scroll on its body (#318)',
+      (tester) async {
+        await pumpScroll(
+          tester,
+          const WDiv(
+            className: 'overflow-y-auto',
+            child: WDiv(className: 'h-full', child: _Probe()),
+          ),
+        );
+
+        final Object? error = tester.takeException();
+        expect(error, isA<AssertionError>());
+        expect(error.toString(), contains('`flex flex-col h-full`'));
+        expect(error.toString(), contains('`flex-1 overflow-y-auto`'));
+        expect(error.toString(), isNot(contains('scroll on the column')));
+      },
+    );
+
+    testWidgets('names the offending box in the report details (#318)', (
       tester,
     ) async {
-      await pumpScroll(
-        tester,
-        const WDiv(
-          className: 'overflow-y-auto',
-          child: WDiv(className: 'h-full', child: _Probe()),
-        ),
-      );
+      final List<FlutterErrorDetails> reports = <FlutterErrorDetails>[];
+      final previous = FlutterError.onError;
+      FlutterError.onError = reports.add;
+      try {
+        await pumpScroll(
+          tester,
+          const WDiv(
+            className: 'overflow-y-auto',
+            child: WDiv(className: 'h-full', child: _Probe()),
+          ),
+        );
+      } finally {
+        FlutterError.onError = previous;
+      }
 
-      final Object? error = tester.takeException();
-      expect(error, isA<AssertionError>());
-      expect(error.toString(), contains('flex-1'));
+      expect(reports, hasLength(1));
+      expect(reports.single.library, 'wind_kit');
+      final String notes = reports.single.informationCollector!().join('\n');
+      expect(notes, contains('The h-full render object was'));
     });
 
     testWidgets('fills a SizedBox in between (#318)', (tester) async {
@@ -127,6 +155,120 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(tester.getSize(find.byKey(wide)).width, 300);
       expect(tester.getSize(find.byKey(fill)).height, 160);
+    });
+
+    testWidgets(
+      'w-full h-full fills the viewport width in overflow-auto when a '
+      'parent loosens the minimum width (#318)',
+      (tester) async {
+        const Key fill = ValueKey<String>('fill');
+
+        // `Align` drops the inherited minimum width, so the only thing left to
+        // size the box against is the viewport the scroll publishes.
+        await pumpScroll(
+          tester,
+          const WDiv(
+            className: 'overflow-auto',
+            child: SizedBox(
+              height: 160,
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: WDiv(
+                  className: 'w-full h-full',
+                  child: SizedBox(key: fill, width: 50, height: 10),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(find.byKey(fill)).width, 300);
+      },
+    );
+
+    group('w-full h-full in a horizontal scroll', () {
+      /// A 300 px `overflow-auto` viewport around a [parentWidth] by 160 box
+      /// whose `Align` loosens the width range, so `w-full h-full` sees either
+      /// a finite maximum (a width given) or an unbounded one (null).
+      Future<void> pumpFill(
+        WidgetTester tester, {
+        required String className,
+        double? parentWidth,
+      }) {
+        return pumpScroll(
+          tester,
+          WDiv(
+            className: 'overflow-auto',
+            child: SizedBox(
+              width: parentWidth,
+              height: 160,
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: WDiv(
+                  className: className,
+                  child: const SizedBox(
+                    key: ValueKey<String>('fill'),
+                    width: 50,
+                    height: 10,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      Size fillSize(WidgetTester tester) =>
+          tester.getSize(find.byKey(const ValueKey<String>('fill')));
+
+      testWidgets('fills a bounded parent wider than the viewport (#318)', (
+        tester,
+      ) async {
+        await pumpFill(tester, className: 'w-full h-full', parentWidth: 600);
+
+        expect(tester.takeException(), isNull);
+        expect(fillSize(tester).width, 600);
+      });
+
+      testWidgets('caps the viewport fill at max-w when the width is '
+          'unbounded (#318)', (tester) async {
+        await pumpFill(tester, className: 'w-full h-full max-w-[100px]');
+
+        expect(tester.takeException(), isNull);
+        expect(fillSize(tester).width, 100);
+      });
+
+      testWidgets('keeps the viewport when max-w is wider than it (#318)', (
+        tester,
+      ) async {
+        await pumpFill(tester, className: 'w-full h-full max-w-[500px]');
+
+        expect(tester.takeException(), isNull);
+        expect(fillSize(tester).width, 300);
+      });
+
+      testWidgets('honours max-w under a bounded parent (#318)', (
+        tester,
+      ) async {
+        await pumpFill(
+          tester,
+          className: 'w-full h-full max-w-[200px]',
+          parentWidth: 600,
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(fillSize(tester).width, 200);
+      });
+
+      testWidgets('takes min-w when it is wider than the viewport (#318)', (
+        tester,
+      ) async {
+        await pumpFill(tester, className: 'w-full h-full min-w-[400px]');
+
+        expect(tester.takeException(), isNull);
+        expect(fillSize(tester).width, 400);
+      });
     });
 
     testWidgets('a padding-only WDiv in between still reports, since it passes '

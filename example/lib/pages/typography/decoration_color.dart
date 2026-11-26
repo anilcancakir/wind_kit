@@ -40,6 +40,15 @@ class DecorationColorExamplePage extends StatelessWidget {
           ),
         ),
         ExampleSection(
+          title: 'Opacity',
+          description:
+              'A /N suffix fades the decoration color only, not the text.',
+          child: const WText(
+            'decoration-red-500/50',
+            className: 'underline decoration-red-500/50 dark:decoration-red-400/50 text-slate-900 dark:text-white text-lg font-mono',
+          ),
+        ),
+        ExampleSection(
           title: 'Independent of Text Color',
           description: 'text-* and decoration-* resolve separately. Slate text with an amber underline is one short string.',
           child: const WText(

@@ -150,7 +150,7 @@ WSelect<String>(
 ```
 
 ### Window Edge
-An open menu stays inside the window horizontally. When the menu is wider than the room to the right of the trigger (a narrow trigger at the end of a row, or a fixed `menuClassName` width such as `w-64`), it shifts left and sits 8 px inside the window edge. A menu that already fits is not moved, and a menu narrower than the trigger stays aligned with the trigger's left edge. The same applies when the menu opens upward.
+An open menu stays inside the window horizontally. When the menu is wider than the room to the right of the trigger (a narrow trigger at the end of a row, or a fixed `menuClassName` width such as `w-64`), it shifts left and sits 8 px inside the window edge. A menu that already fits is not moved, and a menu narrower than the trigger stays aligned with the trigger's left edge. The same applies when the menu opens upward. The menu width is not capped, so the 8 px inset holds only while the menu fits in the window: a menu wider than the window keeps its left edge 8 px in and overflows on the right.
 
 <a name="event-handling"></a>
 ## Event Handling
@@ -219,8 +219,8 @@ A select is fully operable from the keyboard, so keyboard and TV (D-pad) users c
 - Disabled options are skipped, and the highlight stops at the first and last enabled option instead of wrapping.
 - In single mode selecting closes the menu, calls `onChange` and returns focus to the trigger. In multi mode it toggles the option and leaves the menu open.
 - While the menu is open these keys are consumed, so the arrows never move focus away. While it is closed, keys the trigger does not use (including `ArrowUp`) are left alone.
-- With `searchable: true` focus stays in the search field, so `ArrowUp`, `ArrowDown`, `Enter` and `Escape` work from it.
-- The highlight is the hover state: `itemBuilder` receives it as `isHovered`, and the default row shows its hover classes. A keyboard open highlights the selected option (the first selected one in multi mode), else the first enabled option; a pointer open starts with no highlight. The highlighted row scrolls into view in a long list, and the highlight resets when a search or a new `options` list replaces the visible rows.
+- With `searchable: true` opening moves focus to the search field, even from another focused text field, so `ArrowUp`, `ArrowDown`, `Enter` and `Escape` work from it. When the query matches nothing and `onCreateOption` is set, `Enter` runs the `Create "..."` action.
+- The highlight is the hover state: `itemBuilder` receives it as `isHovered`, and the default row shows its hover classes. A keyboard open highlights the selected option (the first selected one in multi mode), else the first enabled option; a pointer open starts with no highlight. The highlighted row scrolls into view in a long list, rows of varying `itemBuilder` height included. Rows that scroll under a resting pointer leave a keyboard highlight alone; moving the pointer takes the highlight back. Typing a search resets the highlight; a new `options` list keeps it on the same option (by value) under the current search, and clears it when that option is gone.
 
 <a name="state-variants"></a>
 ## State Variants

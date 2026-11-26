@@ -8,6 +8,7 @@ A highly customisable, utility-first select component that supports single selec
 - [Layout Modes](#layout-modes)
 - [Event Handling](#event-handling)
 - [Accessibility](#accessibility)
+- [Keyboard Navigation](#keyboard-navigation)
 - [State Variants](#state-variants)
 - [Styling Examples](#styling-examples)
 - [All Supported Classes](#all-supported-classes)
@@ -83,8 +84,8 @@ const WSelect({
 
 | Prop | Type | Default | Description |
 |:-----|:-----|:--------|:------------|
-| `className` | `String?` | `null` | Utility classes for the trigger container; when null the trigger uses `bg-white border border-gray-300 rounded-lg p-3` |
-| `menuClassName` | `String?` | `null` | Utility classes for the dropdown menu |
+| `className` | `String?` | `null` | Utility classes for the trigger container; when null the trigger uses `bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-3` |
+| `menuClassName` | `String?` | `null` | Utility classes for the dropdown menu. A menu with no background class still gets the default surface `bg-white dark:bg-gray-800`; any background class you set, including `bg-transparent`, wins |
 | `options` | `List<SelectOption<T>>` | **Required** | List of items to display |
 | `value` | `T?` | `null` | Selected value in single-select mode |
 | `onChange` | `ValueChanged<T>?` | `null` | Callback for single selection changes |
@@ -148,6 +149,9 @@ WSelect<String>(
 )
 ```
 
+### Window Edge
+An open menu stays inside the window horizontally. When the menu is wider than the room to the right of the trigger (a narrow trigger at the end of a row, or a fixed `menuClassName` width such as `w-64`), it shifts left and sits 8 px inside the window edge. A menu that already fits is not moved, and a menu narrower than the trigger stays aligned with the trigger's left edge. The same applies when the menu opens upward. The menu width is not capped, so the 8 px inset holds only while the menu fits in the window: a menu wider than the window keeps its left edge 8 px in and overflows on the right.
+
 <a name="event-handling"></a>
 ## Event Handling
 
@@ -197,6 +201,26 @@ page two and append duplicates. Reset the cursor only if `options` resets too.
 The closed trigger is one button whose accessible name is its visible text: the selected option's label (labels joined with `, ` in multi-select), and the `placeholder` only while nothing is selected. A test or tapir script that finds a select with a value by its placeholder text must look for the selected label instead. The default placeholder is English and wind has no localisation layer, so pass a translated `placeholder` in a localised app.
 
 The closed trigger publishes exactly one semantics node: it carries the button role, the enabled state, the name, the tap action that opens or closes the menu (absent when `disabled`) and the keyboard focus state. The trigger's own content, including multi-select chips and the output of `triggerBuilder` / `multiTriggerBuilder`, is excluded from semantics so it is not announced a second time. The search field of an open menu keeps its own semantics.
+
+<a name="keyboard-navigation"></a>
+## Keyboard Navigation
+
+A select is fully operable from the keyboard, so keyboard and TV (D-pad) users can open it, walk the options and pick one. Tab moves focus to the trigger; the keys below act on it.
+
+| Key | Menu closed (trigger focused) | Menu open | Menu open with `searchable: true` |
+|:----|:------------------------------|:----------|:----------------------------------|
+| `Enter`, `NumpadEnter`, D-pad centre (`select`), `gameButtonA` | Opens the menu | Selects the highlighted option | Same |
+| `Space` | Opens the menu | Selects the highlighted option | Typed into the search field |
+| `ArrowDown` | Opens the menu | Highlights the next enabled option | Same |
+| `ArrowUp` | Not handled | Highlights the previous enabled option | Same |
+| `Home`, `End` | Not handled | Highlights the first or last enabled option | Move the caret in the search field |
+| `Escape` | Not handled | Closes the menu and returns focus to the trigger | Same |
+
+- Disabled options are skipped, and the highlight stops at the first and last enabled option instead of wrapping.
+- In single mode selecting closes the menu, calls `onChange` and returns focus to the trigger. In multi mode it toggles the option and leaves the menu open.
+- While the menu is open these keys are consumed, so the arrows never move focus away. While it is closed, keys the trigger does not use (including `ArrowUp`) are left alone.
+- With `searchable: true` opening moves focus to the search field, even from another focused text field, so `ArrowUp`, `ArrowDown`, `Enter` and `Escape` work from it. When the query matches nothing and `onCreateOption` is set, `Enter` runs the `Create "..."` action.
+- The highlight is the hover state: `itemBuilder` receives it as `isHovered`, and the default row shows its hover classes. A keyboard open highlights the selected option (the first selected one in multi mode), else the first enabled option; a pointer open starts with no highlight. The highlighted row scrolls into view in a long list, rows of varying `itemBuilder` height included. Rows that scroll under a resting pointer leave a keyboard highlight alone; moving the pointer takes the highlight back. Typing a search resets the highlight; a new `options` list keeps it on the same option (by value) under the current search, and clears it when that option is gone.
 
 <a name="state-variants"></a>
 ## State Variants

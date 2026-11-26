@@ -8,6 +8,10 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Escape closes a `WPopover` a pointer opened, whatever the trigger widget is, so a plain `WDiv` trigger such as a team switcher no longer stays open on Escape after a click.** The trigger's `Listener` toggled the popover and moved no focus, and the Escape handler hears keys only while focus is on the trigger or in the panel, so a trigger that takes no focus of its own left Escape with nowhere to go; a host app's QA walk found its team switcher ignoring Escape while the bell and the account menu beside it closed. A mouse or web pointer open now focuses the trigger unless focus is already inside it, and takes focus back once if it drops to the trigger's own scope as the panel mounts, as a keyboard open already did on the web; measured in a web build of the gallery, a mouse-opened popover with a plain `WDiv` trigger stayed open on Escape before and closes now. A touch open outside the browser moves no focus, because a phone keeps a text field's focus and keyboard through a touch elsewhere (`EditableText` unfocuses on touch only on the web) and has no Escape key to pay for it. The trigger's `focus:` state stays off until the next key, the way `WSelect` holds its ring after a pointer open, so a click lights no ring. The drop check now counts only a scope around the trigger, so a page a panel item pushes keeps its focus and its own Escape: before, a keyboard-opened popover whose item a click pushed a page from took that page's focus back to the hidden trigger, and Escape on the page closed the popover instead. `lib/src/widgets/w_popover.dart`, `test/widgets/w_popover/keyboard_test.dart`, `doc/widgets/w-popover.md`, `skills/wind-ui/SKILL.md`, `skills/wind-ui/references/widgets.md` (#347, #349)
+
 ---
 
 ## [1.13.1] - 2026-11-26

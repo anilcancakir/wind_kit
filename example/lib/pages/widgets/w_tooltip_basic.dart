@@ -21,24 +21,15 @@ class WTooltipBasicExamplePage extends StatelessWidget {
             children: const [
               WTooltip(
                 message: 'Save changes',
-                child: _IconAction(
-                  icon: Icons.save_outlined,
-                  label: 'Save changes',
-                ),
+                child: _IconAction(icon: Icons.save_outlined),
               ),
               WTooltip(
                 message: 'Copy link',
-                child: _IconAction(
-                  icon: Icons.link_outlined,
-                  label: 'Copy link',
-                ),
+                child: _IconAction(icon: Icons.link_outlined),
               ),
               WTooltip(
                 message: 'Delete item',
-                child: _IconAction(
-                  icon: Icons.delete_outlined,
-                  label: 'Delete item',
-                ),
+                child: _IconAction(icon: Icons.delete_outlined),
               ),
             ],
           ),
@@ -74,10 +65,7 @@ class WTooltipBasicExamplePage extends StatelessWidget {
                   px-3 py-1.5 rounded-lg
                   border border-purple-700 dark:border-purple-300
                 ''',
-                child: _IconAction(
-                  icon: Icons.share_outlined,
-                  label: 'Share with John Doe',
-                ),
+                child: _IconAction(icon: Icons.share_outlined),
               ),
             ],
           ),
@@ -97,24 +85,24 @@ class _AlignedTooltip extends StatelessWidget {
     return WTooltip(
       message: alignment.name,
       alignment: alignment,
-      child: _IconAction(icon: Icons.info_outlined, label: alignment.name),
+      child: const _IconAction(icon: Icons.info_outlined),
     );
   }
 }
 
 class _IconAction extends StatelessWidget {
   final IconData icon;
-  final String label;
 
-  const _IconAction({required this.icon, required this.label});
+  const _IconAction({required this.icon});
 
   @override
   Widget build(BuildContext context) {
+    // No semanticLabel: the enclosing WTooltip publishes its message as the
+    // semantics tooltip, so a label of the same text would be spoken twice.
     return WButton(
       onTap: () {},
-      semanticLabel: label,
       className: '''
-        p-2 rounded-lg
+        p-3 rounded-lg
         bg-slate-100 dark:bg-slate-700
         hover:bg-slate-200 dark:hover:bg-slate-600
         focus:ring-2 focus:ring-slate-400 dark:focus:ring-slate-500

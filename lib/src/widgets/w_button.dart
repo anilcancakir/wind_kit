@@ -370,12 +370,20 @@ class WButton extends StatelessWidget {
             ? textColor
             : _contrastColor(styles));
 
+    // The indicator publishes `SemanticsRole.loadingSpinner`, and merging
+    // copies a child's role onto the button node, whose role is `none` (the
+    // button is a flag). Flutter web reads the role before the flags, so the
+    // merged node lost its button role and its disabled state. The spinner
+    // carries no label, so excluding it drops only that role.
+    WindPerfCounters.recordWrapperEmission('ExcludeSemantics');
     final Widget spinner = SizedBox(
       width: loadingSize,
       height: loadingSize,
-      child: CircularProgressIndicator(
-        strokeWidth: 2,
-        valueColor: AlwaysStoppedAnimation<Color>(spinnerColor),
+      child: ExcludeSemantics(
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(spinnerColor),
+        ),
       ),
     );
 

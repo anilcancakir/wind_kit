@@ -216,6 +216,10 @@ class WFormSelect<T> extends FormField<T> {
 /// [FormField.initialValue] is read once on creation, so without this a new
 /// value from the parent is ignored.
 class _WFormSelectState<T> extends FormFieldState<T> {
+  /// Keeps the [WSelect] element, with its open menu and focus, when an error
+  /// or hint appearing or clearing moves it in or out of the label column.
+  final GlobalKey selectKey = GlobalKey();
+
   @override
   WFormSelect<T> get widget => super.widget as WFormSelect<T>;
 
@@ -304,6 +308,7 @@ class _WFormSelectContent<T> extends StatelessWidget {
 
     WindPerfCounters.recordWidgetBuild('WFormSelect');
     final select = WSelect<T>(
+      key: (state as _WFormSelectState<T>).selectKey,
       value: state.value,
       options: options,
       onChange: (newValue) {
@@ -581,6 +586,9 @@ class WFormMultiSelect<T> extends FormField<List<T>> {
 /// `oldWidget.values`: a parent that edits its list in place hands over the
 /// same object twice, so the two would always match.
 class _WFormMultiSelectState<T> extends FormFieldState<List<T>> {
+  /// Keeps the [WSelect] element in place; see [_WFormSelectState.selectKey].
+  final GlobalKey selectKey = GlobalKey();
+
   late List<T> _parentValues;
 
   @override
@@ -681,6 +689,7 @@ class _WFormMultiSelectContent<T> extends StatelessWidget {
 
     WindPerfCounters.recordWidgetBuild('WFormMultiSelect');
     final select = WSelect<T>(
+      key: (state as _WFormMultiSelectState<T>).selectKey,
       isMulti: true,
       values: state.value,
       options: options,

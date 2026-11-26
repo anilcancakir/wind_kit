@@ -287,6 +287,32 @@ void main() {
         expect(find.text('Turkey'), findsOneWidget);
       });
 
+      testWidgets('keeps an open menu when an error appears below it', (
+        tester,
+      ) async {
+        final formKey = GlobalKey<FormState>();
+        await tester.pumpWidget(
+          wrapWithTheme(
+            Form(
+              key: formKey,
+              child: WFormSelect<String>(
+                options: testOptions,
+                validator: (value) => value == null ? 'Required' : null,
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Select an option'));
+        await tester.pumpAndSettle();
+        expect(find.text('Turkey'), findsOneWidget);
+
+        formKey.currentState!.validate();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Required'), findsOneWidget);
+        expect(find.text('Turkey'), findsOneWidget);
+      });
+
       testWidgets('clears when the parent value becomes null', (tester) async {
         await tester.pumpWidget(buildSelect('uk'));
         await tester.pumpWidget(buildSelect(null));
@@ -647,6 +673,33 @@ void main() {
         // A new list with the same content is not a change.
         await tester.pumpWidget(buildMultiSelect(['us']));
 
+        expect(find.text('Turkey'), findsOneWidget);
+      });
+
+      testWidgets('keeps an open menu when an error appears below it', (
+        tester,
+      ) async {
+        final formKey = GlobalKey<FormState>();
+        await tester.pumpWidget(
+          wrapWithTheme(
+            Form(
+              key: formKey,
+              child: WFormMultiSelect<String>(
+                options: testOptions,
+                validator: (values) =>
+                    (values == null || values.isEmpty) ? 'Pick one' : null,
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Select options'));
+        await tester.pumpAndSettle();
+        expect(find.text('Turkey'), findsOneWidget);
+
+        formKey.currentState!.validate();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Pick one'), findsOneWidget);
         expect(find.text('Turkey'), findsOneWidget);
       });
 

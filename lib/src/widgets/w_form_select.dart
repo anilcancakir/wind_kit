@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:material_ui/material_ui.dart';
 
 import '../utils/wind_perf_counters.dart';
@@ -36,7 +37,7 @@ class WFormSelect<T> extends FormField<T> {
   /// Creates a Wind-styled form select (single-select).
   WFormSelect({
     super.key,
-    T? value,
+    this.value,
     super.validator,
     super.onSaved,
     super.autovalidateMode,
@@ -111,6 +112,16 @@ class WFormSelect<T> extends FormField<T> {
            );
          },
        );
+
+  /// The selected value.
+  ///
+  /// A change between rebuilds replaces the field's value, so the parent can
+  /// drive the select without a key that remounts it (and drops its focus).
+  /// A pick the parent does not echo back stays until this value changes.
+  final T? value;
+
+  @override
+  FormFieldState<T> createState() => _WFormSelectState<T>();
 
   /// The list of available options.
   final List<SelectOption<T>> options;
@@ -196,6 +207,23 @@ class WFormSelect<T> extends FormField<T> {
 
   /// Tailwind-like classes for error message.
   final String errorClassName;
+}
+
+/// Syncs the field when the parent's [WFormSelect.value] changes.
+///
+/// [FormField.initialValue] is read once on creation, so without this a new
+/// value from the parent is ignored.
+class _WFormSelectState<T> extends FormFieldState<T> {
+  @override
+  WFormSelect<T> get widget => super.widget as WFormSelect<T>;
+
+  @override
+  void didUpdateWidget(covariant WFormSelect<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) {
+      setValue(widget.value);
+    }
+  }
 }
 
 /// Internal widget for WFormSelect.
@@ -363,7 +391,7 @@ class WFormMultiSelect<T> extends FormField<List<T>> {
   /// Creates a Wind-styled form multi-select.
   WFormMultiSelect({
     super.key,
-    List<T>? values,
+    this.values,
     super.validator,
     super.onSaved,
     super.autovalidateMode,
@@ -443,6 +471,15 @@ class WFormMultiSelect<T> extends FormField<List<T>> {
 
   /// The list of available options.
   final List<SelectOption<T>> options;
+
+  /// The selected values.
+  ///
+  /// A change in content between rebuilds replaces the field's values; a new
+  /// list with the same items in the same order is not a change.
+  final List<T>? values;
+
+  @override
+  FormFieldState<List<T>> createState() => _WFormMultiSelectState<T>();
 
   /// Called when selection changes.
   final ValueChanged<List<T>>? onMultiChange;
@@ -532,6 +569,20 @@ class WFormMultiSelect<T> extends FormField<List<T>> {
 }
 
 /// Internal widget for WFormMultiSelect.
+/// Syncs the field when the parent's [WFormMultiSelect.values] change.
+class _WFormMultiSelectState<T> extends FormFieldState<List<T>> {
+  @override
+  WFormMultiSelect<T> get widget => super.widget as WFormMultiSelect<T>;
+
+  @override
+  void didUpdateWidget(covariant WFormMultiSelect<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!listEquals(oldWidget.values, widget.values)) {
+      setValue(widget.values ?? []);
+    }
+  }
+}
+
 class _WFormMultiSelectContent<T> extends StatelessWidget {
   const _WFormMultiSelectContent({
     required this.state,

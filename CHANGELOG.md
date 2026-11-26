@@ -8,6 +8,10 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`WFormSelect` follows a `value` the parent changes, and `WFormMultiSelect` follows `values`, so a form drives its selects without a key that remounts them.** Both handed the value to `FormField.initialValue`, which is read once, so a value set from outside (a template filling the category, a reset of a dependent field) was ignored. A consuming app keyed each select on its value to re-seed it; on wind_kit 1.13, where a tap that opens a select focuses it, the remount after each pick dropped that focus back to the text field that had it, and on a phone the keyboard came back and the sheet ignored taps while the field scrolled into view. Each now has its own `FormFieldState` that calls `setValue` in `didUpdateWidget` when the value changes, as `WFormCheckbox` already did; `values` compares by content, so a fresh list with the same items keeps the user's toggles, and a pick the parent does not echo back stays until the parent's value changes. `value` and `values` are now public fields. `lib/src/widgets/w_form_select.dart`, `test/widgets/w_form_select_test.dart`, `doc/widgets/w-form-select.md`, `skills/wind-ui/references/forms.md`, `skills/wind-ui/SKILL.md` (#345)
+
 ---
 
 ## [1.13.0] - 2026-11-26
